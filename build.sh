@@ -39,6 +39,9 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 if [ -f Resources/logo.png ]; then
   cp Resources/logo.png "$APP/Contents/Resources/logo.png"
 fi
+if [ -d Resources/cat ]; then
+  cp -R Resources/cat "$APP/Contents/Resources/cat"
+fi
 
 codesign --force --sign - "$APP" >/dev/null 2>&1 || true
 

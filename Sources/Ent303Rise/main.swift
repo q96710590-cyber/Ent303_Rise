@@ -95,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var panel: PetPanel?
     private var hostingView: NSHostingView<AnyView>?
     private var iconView: IconView?
+    private var inspectorWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private let state = AppState()
     private var cancellables = Set<AnyCancellable>()
@@ -113,6 +114,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         observeCollapse()
         startHoverMonitor()
         runDemoMoveIfNeeded()
+
+        if CommandLine.arguments.contains("--open-inspector") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                self?.toggleInspector()
+            }
+        }
     }
 
     // MARK: - 鼠标位置轮询
@@ -276,6 +283,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         item.button?.image?.isTemplate = true
 
         let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "检查台", action: #selector(toggleInspector), keyEquivalent: "i"))
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "显示 / 隐藏", action: #selector(togglePanel), keyEquivalent: "h"))
         menu.addItem(NSMenuItem(title: "立即提醒", action: #selector(forceReminder), keyEquivalent: "r"))
         menu.addItem(.separator())
@@ -284,6 +293,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         item.menu = menu
         statusItem = item
+    }
+
+    // MARK: - 检查台
+
+    @objc private func toggleInspector() {
+        if inspectorWindow == nil {
+            let w = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 760),
+                styleMask: [.titled, .closable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            w.title = "Ent303 检查台"
+            w.isReleasedWhenClosed = false
+            w.contentViewController = NSHostingController(
+                rootView: InspectorView().environmentObject(state)
+            )
+            w.delegate = self
+            w.center()
+            inspectorWindow = w
+        }
+        guard let w = inspectorWindow else { return }
+
+        if w.isVisible {
+            w.orderOut(nil)
+            state.setInspectorOpen(false)
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            w.makeKeyAndOrderFront(nil)
+            state.setInspectorOpen(true)
+        }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        if let w = notification.object as? NSWindow, w === inspectorWindow {
+            state.setInspectorOpen(false)
+        }
     }
 
     @objc private func togglePanel() {

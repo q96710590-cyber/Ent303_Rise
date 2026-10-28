@@ -38,6 +38,8 @@ final class AppState: ObservableObject {
     @Published var isHovering = false
     /// 是否正在编辑时长输入框
     @Published var isEditing = false
+    /// 检查台窗口是否打开（打开时禁止自动缩略，方便对照检查）
+    @Published var inspectorOpen = false
 
     /// 空闲不超过这个值 → 认为仍在电脑前工作
     private let activeThreshold: Double = 120
@@ -183,12 +185,20 @@ final class AppState: ObservableObject {
     }
 
     private func evaluateCollapse() {
-        guard !collapsed, !isEditing, !isHovering, reminder == nil,
+        guard !collapsed, !isEditing, !isHovering, !inspectorOpen, reminder == nil,
               let leftAt else { return }
         if Date().timeIntervalSince(leftAt) >= collapseDelay {
             collapsed = true
             self.leftAt = nil
         }
+    }
+
+    /// 检查台开关；关闭后重新开始倒计时，避免立刻缩略
+    func setInspectorOpen(_ open: Bool) {
+        guard open != inspectorOpen else { return }
+        inspectorOpen = open
+        if !open { leftAt = isHovering ? nil : Date() }
+        evaluateCollapse()
     }
 
     // MARK: - 派生值
