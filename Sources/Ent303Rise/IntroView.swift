@@ -180,6 +180,9 @@ struct Composition {
     private let catToIsland = 0.34
     /// 猫中心位于平台宽度的 30%（设计稿测量）
     private let catCenterRatio = 0.30
+    /// 猫脚落在平台高度的多少比例处（0 = 平台顶边）
+    /// 由设计稿红线标注测得：0.406（原来只沉到顶边附近，猫是"浮"在平台上的）
+    private let seatDepthRatio = 0.406
 
     private static var cachedIsland: NSImage?
     private static var cachedCat: NSImage?
@@ -238,7 +241,7 @@ struct Composition {
     /// 平台顶面（猫脚处）与画布里猫底对齐
     var islandY: Double {
         let catBottom = canvasY + Double(meta?.catBox[3] ?? 690) * scale
-        return catBottom - (meta?.islandSurface ?? 0.45) * islandH
+        return catBottom - seatDepthRatio * islandH
     }
 
     func platformOffset(progress: Double) -> Double {
