@@ -42,6 +42,9 @@ fi
 if [ -d Resources/cat ]; then
   cp -R Resources/cat "$APP/Contents/Resources/cat"
 fi
+if [ -f Resources/pet.gif ]; then
+  cp Resources/pet.gif "$APP/Contents/Resources/pet.gif"
+fi
 
 codesign --force --sign - "$APP" >/dev/null 2>&1 || true
 

@@ -33,7 +33,7 @@ struct ContentView: View {
                 reminderArea
                 settingsBlock
             } else {
-                placeholderPage
+                page2
             }
         }
         .padding(16)
@@ -156,6 +156,28 @@ struct ContentView: View {
                     style: StrokeStyle(lineWidth: 1, dash: [5, 5])
                 )
         )
+    }
+
+    /// 第 2 页：Resources/pet.gif 存在就直接播放它，否则显示占位
+    @ViewBuilder
+    private var page2: some View {
+        if let gif = Bundle.main.url(forResource: "pet", withExtension: "gif") {
+            VStack(spacing: 6) {
+                AnimatedGIFView(url: gif)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text("pet.gif")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.black.opacity(0.05))
+            )
+        } else {
+            placeholderPage
+        }
     }
 
     // MARK: - 顶部
