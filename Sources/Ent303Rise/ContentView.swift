@@ -46,18 +46,27 @@ struct ContentView: View {
 
     /// 回车 / 失去焦点时提交：解析三段输入，规范化后写回状态
     private func commit() {
-        let h = max(0, min(Int(hoursInput) ?? 0, 99))
-        let m = max(0, min(Int(minutesInput) ?? 0, 59))
-        let s = max(0, min(Int(secondsInput) ?? 0, 59))
-        let total = h * 3600 + m * 60 + s
+        let rawH = max(0, Int(hoursInput) ?? 0)
+        let rawM = max(0, Int(minutesInput) ?? 0)
+        let rawS = max(0, Int(secondsInput) ?? 0)
+        // 不逐段截断，允许 90 分这种写法，交给归一化处理
+        let total = min(rawH * 3600 + rawM * 60 + rawS, 99 * 3600)
 
         guard total >= 1 else {
-            // 不合法（全为 0 或清空了）→ 回退到当前生效值
+            // 全为 0 或清空了 → 回退到当前生效值
             applyToInputs(state.intervalSeconds)
             return
         }
+
         state.intervalSeconds = total
-        applyToInputs(total)   // 规范化显示，例如 90 分 → 1 时 30 分
+
+        // 只有确实需要规范化时才回写；否则不动文本，避免选中态干扰
+        let normH = total / 3600
+        let normM = (total % 3600) / 60
+        let normS = total % 60
+        if normH != rawH || normM != rawM || normS != rawS {
+            applyToInputs(total)   // 例如 90 分 → 1 时 30 分
+        }
     }
 
     /// 把秒数拆成 时 / 分 / 秒 三段显示
@@ -369,7 +378,9 @@ struct ContentView: View {
                         .fill(Color.white.opacity(focus == field ? 0.20 : 0.12))
                 )
                 .focused($focus, equals: field)
-                .onSubmit { commit() }
+                // 回车只负责"结束编辑"，提交交给 focus 变化去处理，
+                // 这样回写格式化值时输入框已经不在编辑态，不会被全选。
+                .onSubmit { dismissFocus() }
             Text(unit)
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
