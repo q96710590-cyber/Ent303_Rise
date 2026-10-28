@@ -104,7 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// 详情窗最后一次的位置。缩略时以它为锚点。
     private var lastExpandedFrame: NSRect?
 
-    private let expandedSize = NSSize(width: 320, height: 504)
+    private let expandedSize = NSSize(width: 320, height: 548)
     private let collapsedSize = NSSize(width: 72, height: 72)
 
     func applicationDidFinishLaunching(_ notification: Notification) {

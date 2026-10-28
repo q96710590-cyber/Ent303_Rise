@@ -12,6 +12,9 @@ struct ContentView: View {
     enum DurationFocus: Hashable { case hours, minutes, seconds }
     @FocusState private var focus: DurationFocus?
 
+    /// 详情页的当前分页（--demo-page2 可让启动时直接停在第 2 页，便于截图验证）
+    @State private var page = CommandLine.arguments.contains("--demo-page2") ? 1 : 0
+
     // 缩略图标由 AppKit 的 IconView 负责（见 main.swift），
     // 这里只渲染详情界面，缩略时整个 hosting view 会被隐藏。
     var body: some View {
@@ -23,13 +26,18 @@ struct ContentView: View {
     private var expandedContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            detectionArea
-            timerBlock
-            reminderArea
-            settingsBlock
+            pageTabs
+            if page == 0 {
+                detectionArea
+                timerBlock
+                reminderArea
+                settingsBlock
+            } else {
+                placeholderPage
+            }
         }
         .padding(16)
-        .frame(width: 320, height: 504, alignment: .top)
+        .frame(width: 320, height: 548, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -95,6 +103,58 @@ struct ContentView: View {
                 let remainder = state.intervalSeconds % 60
                 state.intervalSeconds = max(60, newMinutes * 60 + remainder)
             }
+        )
+    }
+
+    // MARK: - 分页
+
+    private var pageTabs: some View {
+        HStack(spacing: 6) {
+            tabButton("概览", index: 0)
+            tabButton("页面 2", index: 1)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func tabButton(_ title: String, index: Int) -> some View {
+        Button {
+            page = index
+        } label: {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule().fill(page == index
+                                   ? Color.accentColor.opacity(0.85)
+                                   : Color.white.opacity(0.10))
+                )
+                .foregroundStyle(page == index ? Color.white : Color.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 第二页暂为占位，等接入宠物形象 / 视觉素材或新功能
+    private var placeholderPage: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "square.dashed")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary)
+            Text("页面 2")
+                .font(.system(size: 13, weight: .bold))
+            Text("等待接入内容\n宠物形象 / 视觉素材 / 新功能")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    Color.secondary.opacity(0.30),
+                    style: StrokeStyle(lineWidth: 1, dash: [5, 5])
+                )
         )
     }
 
