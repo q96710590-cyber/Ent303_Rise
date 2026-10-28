@@ -131,9 +131,14 @@ final class AppState: ObservableObject {
     }
 
     var goalText: String {
-        intervalSeconds < 60
-            ? "\(intervalSeconds) 秒"
-            : "\(intervalSeconds / 60) 分钟"
+        let h = intervalSeconds / 3600
+        let m = (intervalSeconds % 3600) / 60
+        let s = intervalSeconds % 60
+        var parts: [String] = []
+        if h > 0 { parts.append("\(h) 时") }
+        if m > 0 { parts.append("\(m) 分") }
+        if s > 0 || parts.isEmpty { parts.append("\(s) 秒") }
+        return parts.joined(separator: " ")
     }
 
     var progress: Double {
@@ -153,8 +158,10 @@ final class AppState: ObservableObject {
     /// 距离下一次提醒还有多久。
     var remainingText: String {
         let left = max(0, max(1, intervalSeconds) - workSeconds)
-        let m = left / 60
+        let h = left / 3600
+        let m = (left % 3600) / 60
         let s = left % 60
+        if h > 0 { return "\(h) 时 \(m) 分 \(s) 秒" }
         return m > 0 ? "\(m) 分 \(s) 秒" : "\(s) 秒"
     }
 
