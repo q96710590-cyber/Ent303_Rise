@@ -9,6 +9,9 @@ struct ContentView: View {
     @State private var minutesInput: String = "45"
     @State private var secondsInput: String = "0"
 
+    enum DurationFocus: Hashable { case hours, minutes, seconds }
+    @FocusState private var focus: DurationFocus?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
@@ -22,33 +25,52 @@ struct ContentView: View {
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(.ultraThinMaterial)
+                .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                // 点卡片空白处 = 失焦保存
+                .onTapGesture { dismissFocus() }
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
         )
-        // 外部改动（测试按钮 / 箭头）→ 回写到三个输入框
+        // 外部改动（测试按钮 / 箭头）→ 回写输入框；正在编辑时不打扰
         .onChange(of: state.intervalSeconds) { newValue in
-            let current = (Int(hoursInput) ?? 0) * 3600
-                + (Int(minutesInput) ?? 0) * 60
-                + (Int(secondsInput) ?? 0)
-            guard newValue != current else { return }
-            hoursInput = String(newValue / 3600)
-            minutesInput = String((newValue % 3600) / 60)
-            secondsInput = String(newValue % 60)
+            guard focus == nil else { return }
+            applyToInputs(newValue)
         }
-        .onChange(of: hoursInput) { _ in applyDurationInputs() }
-        .onChange(of: minutesInput) { _ in applyDurationInputs() }
-        .onChange(of: secondsInput) { _ in applyDurationInputs() }
+        // 失去焦点（回车 / 点空白处）→ 提交
+        .onChange(of: focus) { newValue in
+            if newValue == nil { commit() }
+        }
     }
 
-    private func applyDurationInputs() {
-        let h = Int(hoursInput) ?? 0
-        let m = Int(minutesInput) ?? 0
-        let s = Int(secondsInput) ?? 0
+    /// 回车 / 失去焦点时提交：解析三段输入，规范化后写回状态
+    private func commit() {
+        let h = max(0, min(Int(hoursInput) ?? 0, 99))
+        let m = max(0, min(Int(minutesInput) ?? 0, 59))
+        let s = max(0, min(Int(secondsInput) ?? 0, 59))
         let total = h * 3600 + m * 60 + s
-        guard total >= 1 else { return }
+
+        guard total >= 1 else {
+            // 不合法（全为 0 或清空了）→ 回退到当前生效值
+            applyToInputs(state.intervalSeconds)
+            return
+        }
         state.intervalSeconds = total
+        applyToInputs(total)   // 规范化显示，例如 90 分 → 1 时 30 分
+    }
+
+    /// 把秒数拆成 时 / 分 / 秒 三段显示
+    private func applyToInputs(_ seconds: Int) {
+        hoursInput = String(seconds / 3600)
+        minutesInput = String((seconds % 3600) / 60)
+        secondsInput = String(seconds % 60)
+    }
+
+    /// 让输入框失焦 → 触发 onChange(focus) → commit()
+    private func dismissFocus() {
+        focus = nil
+        NSApp.keyWindow?.makeFirstResponder(nil)
     }
 
     /// 上下箭头：按分钟增减，保留秒数
@@ -312,9 +334,9 @@ struct ContentView: View {
                         .foregroundStyle(.orange.opacity(0.9))
                 } else {
                     HStack(spacing: 6) {
-                        durationField($hoursInput, unit: "时")
-                        durationField($minutesInput, unit: "分")
-                        durationField($secondsInput, unit: "秒")
+                        durationField($hoursInput, unit: "时", field: .hours)
+                        durationField($minutesInput, unit: "分", field: .minutes)
+                        durationField($secondsInput, unit: "秒", field: .seconds)
                         Spacer(minLength: 4)
                         Stepper("", value: minutesStepperBinding, in: 1...720, step: 1)
                             .labelsHidden()
@@ -331,7 +353,9 @@ struct ContentView: View {
         )
     }
 
-    private func durationField(_ text: Binding<String>, unit: String) -> some View {
+    private func durationField(_ text: Binding<String>,
+                               unit: String,
+                               field: DurationFocus) -> some View {
         HStack(spacing: 3) {
             TextField("", text: text)
                 .textFieldStyle(.plain)
@@ -342,8 +366,10 @@ struct ContentView: View {
                 .padding(.vertical, 2)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color.white.opacity(0.12))
+                        .fill(Color.white.opacity(focus == field ? 0.20 : 0.12))
                 )
+                .focused($focus, equals: field)
+                .onSubmit { commit() }
             Text(unit)
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
