@@ -143,6 +143,9 @@ final class AppState: ObservableObject {
 
     // MARK: - 缩略成图标 / 展开
 
+    /// 鼠标离开窗口后，等待多久缩略成图标（秒）
+    private let collapseDelay: TimeInterval = 5
+
     /// 鼠标离开窗口的时刻；在窗口内时为 nil
     private var leftAt: Date?
 
@@ -175,14 +178,14 @@ final class AppState: ObservableObject {
 
     func expand() {
         collapsed = false
-        // 重新给满 10 秒，避免刚展开就被判超时又缩回去
+        // 重新给满整个等待时长，避免刚展开就被判超时又缩回去
         leftAt = isHovering ? nil : Date()
     }
 
     private func evaluateCollapse() {
         guard !collapsed, !isEditing, !isHovering, reminder == nil,
               let leftAt else { return }
-        if Date().timeIntervalSince(leftAt) >= 10 {
+        if Date().timeIntervalSince(leftAt) >= collapseDelay {
             collapsed = true
             self.leftAt = nil
         }
