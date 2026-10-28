@@ -4,12 +4,10 @@ import Combine
 import QuartzCore
 
 /// 无边框窗口默认 `canBecomeKey == false`，这会让里面的输入框永远拿不到键盘焦点。
-/// 重写这两个属性，窗口才能真正成为 key window 并接收键盘输入。
 final class PetPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
-    /// 成为 key window 时确保 App 处于激活态。
     override func becomeKey() {
         super.becomeKey()
         if !NSApp.isActive {
@@ -17,7 +15,6 @@ final class PetPanel: NSPanel {
         }
     }
 
-    /// 点击窗口空白处也激活 App，避免用户以为点到了却没反应。
     override func mouseDown(with event: NSEvent) {
         if !NSApp.isActive {
             NSApp.activate(ignoringOtherApps: true)
@@ -27,16 +24,83 @@ final class PetPanel: NSPanel {
     }
 }
 
+/// 缩略态图标。
+/// 用 AppKit 而非 SwiftUI 手势：未激活窗口的第一次点击默认只用于激活，
+/// 会被系统吞掉，导致"拖不动图标"。`acceptsFirstMouse` 返回 true 可以拿到第一下。
+final class IconView: NSView {
+
+    var image: NSImage? {
+        didSet { needsDisplay = true }
+    }
+    var onClick: (() -> Void)?
+
+    private var dragStartMouse: NSPoint = .zero
+    private var dragStartOrigin: NSPoint = .zero
+    private var didDrag = false
+
+    /// 图标绘制边长（固定，不随窗口动画放大缩小）
+    private let iconSide: CGFloat = 64
+    /// 超过这个位移就算拖动，否则算点击
+    private let dragThreshold: CGFloat = 3
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.clear.setFill()
+        dirtyRect.fill()
+        guard let image else { return }
+        let side = min(iconSide, min(bounds.width, bounds.height))
+        let rect = NSRect(x: (bounds.width - side) / 2,
+                          y: (bounds.height - side) / 2,
+                          width: side,
+                          height: side)
+        image.draw(in: rect)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        didDrag = false
+        dragStartMouse = NSEvent.mouseLocation
+        dragStartOrigin = window?.frame.origin ?? .zero
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window else { return }
+        let now = NSEvent.mouseLocation
+        let dx = now.x - dragStartMouse.x
+        let dy = now.y - dragStartMouse.y
+        if abs(dx) > dragThreshold || abs(dy) > dragThreshold {
+            didDrag = true
+        }
+        window.setFrameOrigin(NSPoint(x: dragStartOrigin.x + dx,
+                                      y: dragStartOrigin.y + dy))
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if !didDrag {
+            onClick?()
+        }
+        didDrag = false
+    }
+}
+
+/// 详情界面的 hosting view。
+/// 默认 `acceptsFirstMouse` 为 false：窗口未激活时的第一下点击只用于激活，
+/// 不会落到按钮上，用户会觉得"点了一下没反应"。
+final class FirstMouseHostingView: NSHostingView<AnyView> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private var panel: PetPanel?
+    private var hostingView: NSHostingView<AnyView>?
+    private var iconView: IconView?
     private var statusItem: NSStatusItem?
     private let state = AppState()
     private var cancellables = Set<AnyCancellable>()
     private var hoverMonitor: Timer?
 
-    /// 详情窗最后一次的位置。缩略时以它为锚点，
-    /// 不依赖缩略瞬间窗口的实际 frame（可能正在动画或被内容尺寸牵动）。
+    /// 详情窗最后一次的位置。缩略时以它为锚点。
     private var lastExpandedFrame: NSRect?
 
     private let expandedSize = NSSize(width: 320, height: 504)
@@ -48,11 +112,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         makeStatusItem()
         observeCollapse()
         startHoverMonitor()
+        runDemoMoveIfNeeded()
     }
 
-    /// 轮询鼠标是否在窗口内。
-    /// 不用 SwiftUI 的 onHover：窗口成为 key window 后退出事件可能不触发，
-    /// 导致"窗口被选中时移开鼠标永远不缩略"。
+    // MARK: - 鼠标位置轮询
+
+    /// 不用 SwiftUI 的 onHover：窗口成为 key window 后退出事件可能不触发。
     private func startHoverMonitor() {
         let t = Timer(timeInterval: 0.4, repeats: true) { [weak self] _ in
             guard let self, let p = self.panel else { return }
@@ -65,19 +130,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // MARK: - 悬浮窗
 
     private func makePanel() {
-        let view = NSHostingView(rootView: ContentView().environmentObject(state))
-        view.frame = NSRect(origin: .zero, size: expandedSize)
-        // 让 hosting view 跟随窗口尺寸，而不是 SwiftUI 内容反向把窗口撑/缩掉。
-        // 否则内容一变（详情 → 图标）窗口会立即被拽小，且锚定在左上角、没有动画。
-        view.translatesAutoresizingMaskIntoConstraints = true
-        view.autoresizingMask = [.width, .height]
+        let hosting = FirstMouseHostingView(rootView: AnyView(ContentView().environmentObject(state)))
+        hosting.frame = NSRect(origin: .zero, size: expandedSize)
+        // 让 hosting view 跟随窗口尺寸，而不是 SwiftUI 内容反向把窗口撑/缩掉
+        hosting.translatesAutoresizingMaskIntoConstraints = true
+        hosting.autoresizingMask = [.width, .height]
 
-        // 不使用 .nonactivatingPanel：否则点击不激活 App，键盘事件发给别的 App
-        let p = PetPanel(contentRect: view.frame,
+        let icon = IconView(frame: NSRect(origin: .zero, size: expandedSize))
+        icon.autoresizingMask = [.width, .height]
+        icon.image = Self.loadLogo()
+        icon.isHidden = true
+        icon.onClick = { [weak self] in
+            self?.state.expand()
+        }
+
+        let container = NSView(frame: NSRect(origin: .zero, size: expandedSize))
+        container.autoresizingMask = [.width, .height]
+        container.addSubview(hosting)
+        container.addSubview(icon)
+
+        let p = PetPanel(contentRect: container.frame,
                          styleMask: [.borderless],
                          backing: .buffered,
                          defer: false)
-        p.contentView = view
+        p.contentView = container
         p.isOpaque = false
         p.backgroundColor = .clear
         p.hasShadow = true
@@ -86,12 +162,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
-        p.becomesKeyOnlyIfNeeded = false
 
         if let screen = NSScreen.main {
             let f = screen.visibleFrame
             if CommandLine.arguments.contains("--demo-top-left") {
-                // 测试用：放到左上角，避开鼠标默认所在区域
                 p.setFrameOrigin(NSPoint(x: f.minX + 40,
                                          y: f.maxY - expandedSize.height - 40))
             } else {
@@ -103,10 +177,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         p.orderFrontRegardless()
         p.delegate = self
         lastExpandedFrame = p.frame
+
         panel = p
+        hostingView = hosting
+        iconView = icon
     }
 
-    /// 监听缩略状态，负责改窗口尺寸与位置
+    private static func loadLogo() -> NSImage? {
+        if let url = Bundle.main.url(forResource: "logo", withExtension: "png"),
+           let img = NSImage(contentsOf: url) {
+            return img
+        }
+        return NSImage(systemSymbolName: "figure.stand", accessibilityDescription: nil)
+    }
+
+    // MARK: - 缩略 / 展开
+
     private func observeCollapse() {
         state.$collapsed
             .removeDuplicates()
@@ -124,7 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let size = collapsed ? collapsedSize : expandedSize
 
         // 缩略：以详情窗最后位置为锚点，落在它右下角
-        // 展开：以当前图标位置为锚点，向左上长出去
+        // 展开：以当前图标位置为锚点，让详情窗的右下角对着图标右下角
         let base = collapsed ? (lastExpandedFrame ?? current) : current
 
         var frame = NSRect(x: base.maxX - size.width,
@@ -134,19 +220,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         if let screen = NSScreen.main {
             let v = screen.visibleFrame
+            // 先尽量保持锚点，放不下再贴边
             frame.origin.x = min(max(frame.origin.x, v.minX), v.maxX - frame.width)
             frame.origin.y = min(max(frame.origin.y, v.minY), v.maxY - frame.height)
         }
 
         if !collapsed { lastExpandedFrame = frame }
 
+        hostingView?.isHidden = collapsed
+        iconView?.isHidden = !collapsed
+
         animate(p, to: frame)
-        // 缩略态由图标自己处理拖动，关掉背景拖动避免抢事件
         p.isMovableByWindowBackground = !collapsed
         p.invalidateShadow()
     }
 
-    /// 显式动画，不依赖 setFrame(animate:) 的默认动画行为
     private func animate(_ window: NSWindow, to frame: NSRect) {
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.24
@@ -158,9 +246,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowDidMove(_ notification: Notification) {
-        // 用户拖动详情窗后，记录新位置作为下次缩略的锚点
         guard let p = panel, !state.collapsed else { return }
         lastExpandedFrame = p.frame
+    }
+
+    // MARK: - 调试
+
+    private func runDemoMoveIfNeeded() {
+        guard CommandLine.arguments.contains("--demo-move") else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+            self?.state.collapseToIcon()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+            guard let p = self?.panel else { return }
+            p.setFrameOrigin(NSPoint(x: 400, y: 300))
+            Debug.log("moved icon to \(p.frame)")
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            self?.state.expand()
+        }
     }
 
     // MARK: - 菜单栏

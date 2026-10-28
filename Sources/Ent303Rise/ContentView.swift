@@ -12,68 +12,10 @@ struct ContentView: View {
     enum DurationFocus: Hashable { case hours, minutes, seconds }
     @FocusState private var focus: DurationFocus?
 
-    // 图标拖动
-    @State private var dragStartOrigin: NSPoint = .zero
-    @State private var didDrag = false
-
+    // 缩略图标由 AppKit 的 IconView 负责（见 main.swift），
+    // 这里只渲染详情界面，缩略时整个 hosting view 会被隐藏。
     var body: some View {
-        Group {
-            if state.collapsed {
-                collapsedIcon
-            } else {
-                expandedContent
-            }
-        }
-    }
-
-    // MARK: - 缩略图标
-
-    private var collapsedIcon: some View {
-        // 留 4pt 内边距，避免圆形贴到窗口边缘被裁切
-        Image(nsImage: logoImage)
-            .resizable()
-            .interpolation(.high)
-            .frame(width: 64, height: 64)
-            .frame(width: 72, height: 72)
-            .contentShape(Circle())
-            .gesture(iconGesture)
-            .help("点击展开，按住可拖动")
-    }
-
-    /// 按住拖动 = 移动窗口；轻点 = 展开
-    private var iconGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                guard let w = panelWindow else { return }
-                if !didDrag {
-                    didDrag = true
-                    dragStartOrigin = w.frame.origin
-                }
-                w.setFrameOrigin(
-                    NSPoint(x: dragStartOrigin.x + value.translation.width,
-                            y: dragStartOrigin.y - value.translation.height)
-                )
-            }
-            .onEnded { value in
-                let moved = abs(value.translation.width) + abs(value.translation.height)
-                if moved < 4 {
-                    state.expand()
-                }
-                didDrag = false
-            }
-    }
-
-    private var panelWindow: NSWindow? {
-        NSApp.windows.first { $0 is PetPanel }
-    }
-
-    private var logoImage: NSImage {
-        if let url = Bundle.main.url(forResource: "logo", withExtension: "png"),
-           let img = NSImage(contentsOf: url) {
-            return img
-        }
-        return NSImage(systemSymbolName: "figure.stand", accessibilityDescription: nil)
-            ?? NSImage(size: NSSize(width: 72, height: 72))
+        expandedContent
     }
 
     // MARK: - 详情界面
