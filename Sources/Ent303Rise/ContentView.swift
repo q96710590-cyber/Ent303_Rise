@@ -158,26 +158,16 @@ struct ContentView: View {
         )
     }
 
-    /// 第 2 页：Resources/pet.gif 存在就直接播放它，否则显示占位
+    /// 第 2 页：开屏动画（每次切到本页都会重播）
     @ViewBuilder
     private var page2: some View {
-        if let gif = Bundle.main.url(forResource: "pet", withExtension: "gif") {
-            VStack(spacing: 6) {
-                AnimatedGIFView(url: gif)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                Text("pet.gif")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(8)
+        IntroView()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.black.opacity(0.05))
+                    .fill(Color.black.opacity(0.04))
             )
-        } else {
-            placeholderPage
-        }
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: - 顶部

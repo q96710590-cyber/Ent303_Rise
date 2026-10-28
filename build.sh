@@ -22,6 +22,16 @@ if [ -z "$SDK" ]; then
 fi
 echo "==> SDK: $SDK"
 
+# 生成开屏动画素材（拆帧 / 相位 / 裁切）
+PY=""
+for c in "$HOME/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/python/bin/python3" "$(command -v python3 2>/dev/null)"; do
+  if [ -x "$c" ] && "$c" -c "import PIL" >/dev/null 2>&1; then PY="$c"; break; fi
+done
+if [ -n "$PY" ] && [ -f tools/build_intro.py ]; then
+  echo "==> 处理开屏素材"
+  "$PY" tools/build_intro.py
+fi
+
 echo "==> 编译"
 mkdir -p build
 swiftc -O -target arm64-apple-macos13.0 \
@@ -44,6 +54,10 @@ if [ -d Resources/cat ]; then
 fi
 if [ -f Resources/pet.gif ]; then
   cp Resources/pet.gif "$APP/Contents/Resources/pet.gif"
+fi
+if [ -d Resources/intro ]; then
+  rm -rf "$APP/Contents/Resources/intro"
+  cp -R Resources/intro "$APP/Contents/Resources/intro"
 fi
 
 codesign --force --sign - "$APP" >/dev/null 2>&1 || true

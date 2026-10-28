@@ -40,6 +40,8 @@ final class AppState: ObservableObject {
     @Published var isEditing = false
     /// 检查台窗口是否打开（打开时禁止自动缩略，方便对照检查）
     @Published var inspectorOpen = false
+    /// 开屏动画是否正在播放（播放期间禁止缩略，否则动画会被打断）
+    @Published var introPlaying = false
 
     /// 空闲不超过这个值 → 认为仍在电脑前工作
     private let activeThreshold: Double = 120
@@ -185,12 +187,19 @@ final class AppState: ObservableObject {
     }
 
     private func evaluateCollapse() {
-        guard !collapsed, !isEditing, !isHovering, !inspectorOpen, reminder == nil,
-              let leftAt else { return }
+        guard !collapsed, !isEditing, !isHovering, !inspectorOpen, !introPlaying,
+              reminder == nil, let leftAt else { return }
         if Date().timeIntervalSince(leftAt) >= collapseDelay {
             collapsed = true
             self.leftAt = nil
         }
+    }
+
+    /// 开屏动画结束：解除缩略锁定，并重新开始倒计时
+    /// （否则动画一结束就会因为 leftAt 早于 5 秒而立刻缩略）
+    func endIntro() {
+        introPlaying = false
+        leftAt = isHovering ? nil : Date()
     }
 
     /// 检查台开关；关闭后重新开始倒计时，避免立刻缩略
