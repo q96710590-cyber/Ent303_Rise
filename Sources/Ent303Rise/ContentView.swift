@@ -4,15 +4,15 @@ struct ContentView: View {
     @EnvironmentObject var state: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             header
-            modeRow
+            detectionArea
             timerBlock
             reminderArea
-            settingsRow
+            settingsBlock
         }
         .padding(16)
-        .frame(width: 320, height: 380, alignment: .top)
+        .frame(width: 320, height: 464, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -41,9 +41,19 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - 两个手动确认图标
+    // MARK: - 检测区（随模式切换）
 
-    private var modeRow: some View {
+    @ViewBuilder
+    private var detectionArea: some View {
+        if state.detectionMode == .manual {
+            manualButtons
+        } else {
+            autoStatusCard
+        }
+    }
+
+    /// 手动模式：两个图标手动确认
+    private var manualButtons: some View {
         HStack(spacing: 10) {
             modeButton(icon: "desktopcomputer",
                        label: "在电脑前",
@@ -87,6 +97,31 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
+    /// 自动模式：显示系统判断结果
+    private var autoStatusCard: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(state.mode == .working ? Color.green : Color.secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("自动检测中")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(state.autoStatusText)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+        )
+    }
+
     // MARK: - 计时
 
     private var timerBlock: some View {
@@ -109,75 +144,103 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - 提醒区（固定高度，避免窗口跳动）
+    // MARK: - 提醒区（固定高度）
 
+    @ViewBuilder
     private var reminderArea: some View {
-        Group {
-            if let r = state.reminder {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: r.icon)
-                            .font(.system(size: 15, weight: .semibold))
-                        Text(r.title)
-                            .font(.system(size: 13, weight: .bold))
-                    }
-                    Text(r.detail)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button {
-                        state.acknowledgeReminder()
-                    } label: {
-                        Text("我起来了")
-                            .font(.system(size: 12, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .fill(Color.orange.opacity(0.85))
-                            )
-                            .foregroundStyle(.white)
-                    }
-                    .buttonStyle(.plain)
+        if let r = state.reminder {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: r.icon)
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(r.title)
+                        .font(.system(size: 13, weight: .bold))
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.orange.opacity(0.15))
-                )
-            } else {
-                Color.clear.frame(height: 96)
+                Text(r.detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    state.acknowledgeReminder()
+                } label: {
+                    Text("我起来了")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(Color.orange.opacity(0.85))
+                        )
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.orange.opacity(0.15))
+            )
+        } else {
+            VStack(spacing: 8) {
+                Image(systemName: "hourglass")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.secondary)
+                Text("距下次提醒还有 \(state.remainingText)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Button("预览提醒") {
+                    state.triggerReminder()
+                }
+                .font(.system(size: 10, weight: .semibold))
+                .buttonStyle(.plain)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.white.opacity(0.16)))
+            }
+            .frame(maxWidth: .infinity, minHeight: 96)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
+            )
         }
     }
 
-    // MARK: - 设置
+    // MARK: - 设置：两个选项
 
-    private var settingsRow: some View {
-        HStack(spacing: 10) {
-            Text("提醒间隔")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-            Stepper(value: $state.intervalMinutes, in: 1...120, step: 1) {
+    private var settingsBlock: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Text("提醒方式")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Picker("", selection: $state.detectionMode) {
+                    ForEach(AppState.DetectionMode.allCases) { m in
+                        Text(m.rawValue).tag(m)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 148)
+            }
+
+            HStack(spacing: 8) {
+                Text("提醒间隔")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
                 Text("\(state.intervalMinutes) 分钟")
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
+                Stepper("", value: $state.intervalMinutes, in: 1...120, step: 1)
+                    .labelsHidden()
             }
-            .labelsHidden()
-            Text("\(state.intervalMinutes) 分钟")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-            Spacer()
-            Button("测试提醒") {
-                state.triggerReminder()
-            }
-            .font(.system(size: 11, weight: .semibold))
-            .buttonStyle(.plain)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.white.opacity(0.10))
-            )
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+        )
     }
 }

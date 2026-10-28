@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func makePanel() {
         let view = NSHostingView(rootView: ContentView().environmentObject(state))
-        view.frame = NSRect(x: 0, y: 0, width: 320, height: 380)
+        view.frame = NSRect(x: 0, y: 0, width: 320, height: 464)
 
         let p = NSPanel(contentRect: view.frame,
                         styleMask: [.borderless, .nonactivatingPanel],
