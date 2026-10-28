@@ -1,7 +1,11 @@
 import SwiftUI
+import AppKit
 
 struct ContentView: View {
     @EnvironmentObject var state: AppState
+
+    /// 提醒间隔的分钟输入框内容
+    @State private var minutesInput: String = "45"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -21,6 +25,15 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
         )
+        .onChange(of: state.intervalSeconds) { newValue in
+            guard newValue >= 60 else {
+                minutesInput = ""
+                return
+            }
+            // 用户自己敲的就不用回写，避免打断输入
+            if let typed = Int(minutesInput), typed * 60 == newValue { return }
+            minutesInput = String(newValue / 60)
+        }
     }
 
     // MARK: - 顶部
@@ -38,10 +51,19 @@ struct ContentView: View {
             Text(state.mode == .working ? "计时中" : "已暂停")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
+            Button {
+                NSApp.terminate(nil)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary.opacity(0.75))
+            }
+            .buttonStyle(.plain)
+            .help("退出 Ent303 Rise")
         }
     }
 
-    // MARK: - 检测区（随模式切换）
+    // MARK: - 检测区
 
     @ViewBuilder
     private var detectionArea: some View {
@@ -52,7 +74,6 @@ struct ContentView: View {
         }
     }
 
-    /// 手动模式：两个图标手动确认
     private var manualButtons: some View {
         HStack(spacing: 10) {
             modeButton(icon: "desktopcomputer",
@@ -97,7 +118,6 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
-    /// 自动模式：显示系统判断结果
     private var autoStatusCard: some View {
         HStack(spacing: 10) {
             Image(systemName: "antenna.radiowaves.left.and.right")
@@ -131,9 +151,9 @@ struct ContentView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("目标 \(state.intervalMinutes) 分钟")
+                Text("目标 \(state.goalText)")
                     .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(state.isTestInterval ? .orange : .secondary)
             }
             Text(state.formattedDuration)
                 .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -144,7 +164,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - 提醒区（固定高度）
+    // MARK: - 提醒区
 
     @ViewBuilder
     private var reminderArea: some View {
@@ -206,10 +226,11 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - 设置：两个选项
+    // MARK: - 设置
 
     private var settingsBlock: some View {
         VStack(spacing: 10) {
+            // 选项 1：提醒方式
             HStack(spacing: 8) {
                 Text("提醒方式")
                     .font(.system(size: 11))
@@ -225,15 +246,54 @@ struct ContentView: View {
                 .frame(width: 148)
             }
 
-            HStack(spacing: 8) {
+            // 选项 2：提醒间隔（可自己输入，另有 10 秒测试项）
+            HStack(spacing: 6) {
                 Text("提醒间隔")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 8)
-                Text("\(state.intervalMinutes) 分钟")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                Stepper("", value: $state.intervalMinutes, in: 1...120, step: 1)
-                    .labelsHidden()
+
+                if state.isTestInterval {
+                    Text("测试：\(state.intervalSeconds) 秒")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.orange)
+                    Button("退出测试") {
+                        state.intervalSeconds = 45 * 60
+                    }
+                    .font(.system(size: 10, weight: .semibold))
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.white.opacity(0.14)))
+                } else {
+                    TextField("", text: $minutesInput)
+                        .textFieldStyle(.plain)
+                        .multilineTextAlignment(.trailing)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .frame(width: 34)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color.white.opacity(0.12))
+                        )
+                        .onChange(of: minutesInput) { v in
+                            guard let n = Int(v), n >= 1, n <= 720 else { return }
+                            state.intervalSeconds = n * 60
+                        }
+                    Text("分钟")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Button("10 秒测试") {
+                        state.intervalSeconds = 10
+                    }
+                    .font(.system(size: 10, weight: .semibold))
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.white.opacity(0.14)))
+                    .help("仅用于技术测试，不属于正式选项")
+                }
             }
         }
         .padding(.horizontal, 12)

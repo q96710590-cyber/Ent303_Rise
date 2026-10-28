@@ -4,11 +4,9 @@ import CoreGraphics
 
 /// 应用的全部状态。
 ///
-/// 提供两种提醒方式：
+/// 两种提醒方式：
 /// 1. **自动检测**——读取系统空闲时长，自己判断你在不在电脑前
 /// 2. **手动确认**——由用户点图标声明状态
-///
-/// 两种方式共用同一套计时与提醒逻辑。
 final class AppState: ObservableObject {
 
     enum Mode {
@@ -25,8 +23,11 @@ final class AppState: ObservableObject {
     @Published var mode: Mode = .away
     @Published var workSeconds: Int = 0
     @Published var reminder: Suggestion?
-    @Published var intervalMinutes: Int = 45
     @Published var detectionMode: DetectionMode = .auto
+
+    /// 提醒间隔，单位秒。默认 45 分钟。
+    /// 用秒而不是分钟，是为了支持 10 秒这种仅用于技术测试的短间隔。
+    @Published var intervalSeconds: Int = 45 * 60
 
     /// 最近一次读到的系统空闲秒数（仅用于界面展示）。
     @Published var systemIdleSeconds: Double = 0
@@ -40,7 +41,9 @@ final class AppState: ObservableObject {
 
     init() {
         startHeartbeat()
-        // 调试用：带 --demo-reminder 启动时，1 秒后自动弹一条提醒
+        if CommandLine.arguments.contains("--demo-test-interval") {
+            intervalSeconds = 10
+        }
         if CommandLine.arguments.contains("--demo-reminder") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
                 self?.triggerReminder()
@@ -76,7 +79,6 @@ final class AppState: ObservableObject {
         systemIdleSeconds = idle
 
         if idle >= awayThreshold {
-            // 人离开了：清零，等回来重新开始
             if mode != .away || workSeconds != 0 {
                 mode = .away
                 workSeconds = 0
@@ -91,11 +93,11 @@ final class AppState: ObservableObject {
             workSeconds += 1
             checkThreshold()
         }
-        // 介于两者之间：只是短暂停顿，不计时但也不清零
+        // 介于两者之间：短暂停顿，不计时但也不清零
     }
 
     private func checkThreshold() {
-        if workSeconds >= max(1, intervalMinutes) * 60 {
+        if workSeconds >= max(1, intervalSeconds) {
             triggerReminder()
         }
     }
@@ -124,9 +126,18 @@ final class AppState: ObservableObject {
 
     // MARK: - 派生值
 
+    var isTestInterval: Bool {
+        intervalSeconds < 60
+    }
+
+    var goalText: String {
+        intervalSeconds < 60
+            ? "\(intervalSeconds) 秒"
+            : "\(intervalSeconds / 60) 分钟"
+    }
+
     var progress: Double {
-        let total = Double(max(1, intervalMinutes) * 60)
-        return min(1.0, Double(workSeconds) / total)
+        min(1.0, Double(workSeconds) / Double(max(1, intervalSeconds)))
     }
 
     var formattedDuration: String {
@@ -141,13 +152,12 @@ final class AppState: ObservableObject {
 
     /// 距离下一次提醒还有多久。
     var remainingText: String {
-        let left = max(0, max(1, intervalMinutes) * 60 - workSeconds)
+        let left = max(0, max(1, intervalSeconds) - workSeconds)
         let m = left / 60
         let s = left % 60
         return m > 0 ? "\(m) 分 \(s) 秒" : "\(s) 秒"
     }
 
-    /// 自动模式下用一句话描述当前判断结果。
     var autoStatusText: String {
         let idle = Int(systemIdleSeconds)
         if idle >= Int(awayThreshold) {
