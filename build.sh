@@ -39,6 +39,9 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp build/Ent303_Rise "$APP/Contents/MacOS/Ent303_Rise"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+if [ -f Resources/logo.png ]; then
+  cp Resources/logo.png "$APP/Contents/Resources/logo.png"
+fi
 
 codesign --force --sign - "$APP" >/dev/null 2>&1 || true
 

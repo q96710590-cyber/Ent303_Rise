@@ -32,6 +32,13 @@ final class AppState: ObservableObject {
     /// 最近一次读到的系统空闲秒数（仅用于界面展示）。
     @Published var systemIdleSeconds: Double = 0
 
+    /// 是否已缩略成图标
+    @Published var collapsed = false
+    /// 鼠标是否停留在界面上
+    @Published var isHovering = false
+    /// 是否正在编辑时长输入框
+    @Published var isEditing = false
+
     /// 空闲不超过这个值 → 认为仍在电脑前工作
     private let activeThreshold: Double = 120
     /// 空闲超过这个值 → 认为人已经离开，本轮计时清零
@@ -41,12 +48,21 @@ final class AppState: ObservableObject {
 
     init() {
         startHeartbeat()
+        rescheduleHoverTimer()
         if CommandLine.arguments.contains("--demo-test-interval") {
             intervalSeconds = 10
         }
         if CommandLine.arguments.contains("--demo-reminder") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
                 self?.triggerReminder()
+            }
+        }
+        if CommandLine.arguments.contains("--demo-collapse") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+                self?.collapsed = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
+                self?.collapsed = false
             }
         }
     }
@@ -117,11 +133,48 @@ final class AppState: ObservableObject {
 
     func triggerReminder() {
         reminder = Suggestions.random(excluding: reminder?.title)
+        // 有提醒时必须让用户看到
+        if collapsed { collapsed = false }
     }
 
     func acknowledgeReminder() {
         reminder = nil
         workSeconds = 0
+    }
+
+    // MARK: - 缩略成图标 / 展开
+
+    private var hoverTimer: Timer?
+
+    /// 鼠标是否在界面上；离开后开始 10 秒倒计时
+    func setHovering(_ hovering: Bool) {
+        isHovering = hovering
+        rescheduleHoverTimer()
+    }
+
+    /// 正在编辑输入框时不允许缩略
+    func setEditing(_ editing: Bool) {
+        isEditing = editing
+        rescheduleHoverTimer()
+    }
+
+    func expandFromIcon() {
+        collapsed = false
+        rescheduleHoverTimer()
+    }
+
+    private func rescheduleHoverTimer() {
+        hoverTimer?.invalidate()
+        hoverTimer = nil
+        guard !collapsed, !isHovering, !isEditing, reminder == nil else { return }
+        hoverTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: false) { [weak self] _ in
+            self?.collapseIfIdle()
+        }
+    }
+
+    private func collapseIfIdle() {
+        guard !collapsed, !isHovering, !isEditing, reminder == nil else { return }
+        collapsed = true
     }
 
     // MARK: - 派生值

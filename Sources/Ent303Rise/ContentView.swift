@@ -12,7 +12,73 @@ struct ContentView: View {
     enum DurationFocus: Hashable { case hours, minutes, seconds }
     @FocusState private var focus: DurationFocus?
 
+    // 图标拖动
+    @State private var dragStartOrigin: NSPoint = .zero
+    @State private var didDrag = false
+
     var body: some View {
+        Group {
+            if state.collapsed {
+                collapsedIcon
+            } else {
+                expandedContent
+            }
+        }
+    }
+
+    // MARK: - 缩略图标
+
+    private var collapsedIcon: some View {
+        // 留 4pt 内边距，避免圆形贴到窗口边缘被裁切
+        Image(nsImage: logoImage)
+            .resizable()
+            .interpolation(.high)
+            .frame(width: 64, height: 64)
+            .frame(width: 72, height: 72)
+            .contentShape(Circle())
+            .gesture(iconGesture)
+            .help("点击展开，按住可拖动")
+    }
+
+    /// 按住拖动 = 移动窗口；轻点 = 展开
+    private var iconGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                guard let w = panelWindow else { return }
+                if !didDrag {
+                    didDrag = true
+                    dragStartOrigin = w.frame.origin
+                }
+                w.setFrameOrigin(
+                    NSPoint(x: dragStartOrigin.x + value.translation.width,
+                            y: dragStartOrigin.y - value.translation.height)
+                )
+            }
+            .onEnded { value in
+                let moved = abs(value.translation.width) + abs(value.translation.height)
+                if moved < 4 {
+                    state.expandFromIcon()
+                }
+                didDrag = false
+            }
+    }
+
+    private var panelWindow: NSWindow? {
+        NSApp.windows.first { $0 is PetPanel }
+    }
+
+    private var logoImage: NSImage {
+        if let url = Bundle.main.url(forResource: "logo", withExtension: "png"),
+           let img = NSImage(contentsOf: url) {
+            return img
+        }
+        return NSImage(systemSymbolName: "figure.stand", accessibilityDescription: nil)
+            ?? NSImage(size: NSSize(width: 72, height: 72))
+    }
+
+    // MARK: - 详情界面
+
+    private var expandedContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
             detectionArea
@@ -33,13 +99,15 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
         )
+        .onHover { state.setHovering($0) }
         // 外部改动（测试按钮 / 箭头）→ 回写输入框；正在编辑时不打扰
         .onChange(of: state.intervalSeconds) { newValue in
             guard focus == nil else { return }
             applyToInputs(newValue)
         }
-        // 失去焦点（回车 / 点空白处）→ 提交
+        // 聚焦变化：记录编辑态；失焦即提交
         .onChange(of: focus) { newValue in
+            state.setEditing(newValue != nil)
             if newValue == nil { commit() }
         }
     }
@@ -53,14 +121,12 @@ struct ContentView: View {
         let total = min(rawH * 3600 + rawM * 60 + rawS, 99 * 3600)
 
         guard total >= 1 else {
-            // 全为 0 或清空了 → 回退到当前生效值
             applyToInputs(state.intervalSeconds)
             return
         }
 
         state.intervalSeconds = total
 
-        // 只有确实需要规范化时才回写；否则不动文本，避免选中态干扰
         let normH = total / 3600
         let normM = (total % 3600) / 60
         let normS = total % 60
@@ -69,14 +135,12 @@ struct ContentView: View {
         }
     }
 
-    /// 把秒数拆成 时 / 分 / 秒 三段显示
     private func applyToInputs(_ seconds: Int) {
         hoursInput = String(seconds / 3600)
         minutesInput = String((seconds % 3600) / 60)
         secondsInput = String(seconds % 60)
     }
 
-    /// 让输入框失焦 → 触发 onChange(focus) → commit()
     private func dismissFocus() {
         focus = nil
         NSApp.keyWindow?.makeFirstResponder(nil)
@@ -287,7 +351,6 @@ struct ContentView: View {
 
     private var settingsBlock: some View {
         VStack(spacing: 10) {
-            // 选项 1：提醒方式
             HStack(spacing: 8) {
                 Text("提醒方式")
                     .font(.system(size: 11))
@@ -305,7 +368,6 @@ struct ContentView: View {
 
             Divider().opacity(0.25)
 
-            // 选项 2：提醒间隔
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Text("提醒间隔")
@@ -378,8 +440,7 @@ struct ContentView: View {
                         .fill(Color.white.opacity(focus == field ? 0.20 : 0.12))
                 )
                 .focused($focus, equals: field)
-                // 回车只负责"结束编辑"，提交交给 focus 变化去处理，
-                // 这样回写格式化值时输入框已经不在编辑态，不会被全选。
+                // 回车只负责结束编辑，提交交给 focus 变化
                 .onSubmit { dismissFocus() }
             Text(unit)
                 .font(.system(size: 10))

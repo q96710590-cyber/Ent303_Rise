@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 /// 无边框窗口默认 `canBecomeKey == false`，这会让里面的输入框永远拿不到键盘焦点。
 /// 重写这两个属性，窗口才能真正成为 key window 并接收键盘输入。
@@ -8,7 +9,6 @@ final class PetPanel: NSPanel {
     override var canBecomeMain: Bool { true }
 
     /// 成为 key window 时确保 App 处于激活态。
-    /// 只有 App 激活，键盘事件才会被路由到本窗口，输入框才能收字。
     override func becomeKey() {
         super.becomeKey()
         if !NSApp.isActive {
@@ -31,22 +31,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: PetPanel?
     private var statusItem: NSStatusItem?
     private let state = AppState()
+    private var cancellables = Set<AnyCancellable>()
+
+    private let expandedSize = NSSize(width: 320, height: 504)
+    private let collapsedSize = NSSize(width: 72, height: 72)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // 不占用 Dock，只活在菜单栏 + 悬浮窗
         NSApp.setActivationPolicy(.accessory)
         makePanel()
         makeStatusItem()
+        observeCollapse()
     }
 
     // MARK: - 悬浮窗
 
     private func makePanel() {
         let view = NSHostingView(rootView: ContentView().environmentObject(state))
-        view.frame = NSRect(x: 0, y: 0, width: 320, height: 504)
+        view.frame = NSRect(origin: .zero, size: expandedSize)
 
-        // 不再使用 .nonactivatingPanel：那样点击不会激活 App，
-        // 键盘事件会继续发给原来那个 App，输入框便无法输入。
+        // 不使用 .nonactivatingPanel：否则点击不激活 App，键盘事件发给别的 App
         let p = PetPanel(contentRect: view.frame,
                          styleMask: [.borderless],
                          backing: .buffered,
@@ -62,14 +65,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         p.isReleasedWhenClosed = false
         p.becomesKeyOnlyIfNeeded = false
 
-        // 默认停在屏幕右下角
         if let screen = NSScreen.main {
             let f = screen.visibleFrame
-            p.setFrameOrigin(NSPoint(x: f.maxX - 344, y: f.minY + 36))
+            p.setFrameOrigin(NSPoint(x: f.maxX - expandedSize.width - 24,
+                                     y: f.minY + 36))
         }
 
         p.orderFrontRegardless()
         panel = p
+    }
+
+    /// 监听缩略状态，负责改窗口尺寸与位置
+    private func observeCollapse() {
+        state.$collapsed
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] collapsed in
+                self?.applyCollapsed(collapsed)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyCollapsed(_ collapsed: Bool) {
+        guard let p = panel else { return }
+        let current = p.frame
+        let size = collapsed ? collapsedSize : expandedSize
+
+        // 统一以「当前窗口右下角」为锚点：
+        // 缩略时图标落在详情窗右下；展开时以图标右下角向左上长出去。
+        var frame = NSRect(x: current.maxX - size.width,
+                           y: current.minY,
+                           width: size.width,
+                           height: size.height)
+
+        if let screen = NSScreen.main {
+            let v = screen.visibleFrame
+            frame.origin.x = min(max(frame.origin.x, v.minX), v.maxX - frame.width)
+            frame.origin.y = min(max(frame.origin.y, v.minY), v.maxY - frame.height)
+        }
+
+        p.setFrame(frame, display: true, animate: true)
+        // 缩略态由图标自己处理拖动，关掉背景拖动避免抢事件
+        p.isMovableByWindowBackground = !collapsed
+        p.invalidateShadow()
     }
 
     // MARK: - 菜单栏
