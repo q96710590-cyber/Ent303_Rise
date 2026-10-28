@@ -48,7 +48,6 @@ final class AppState: ObservableObject {
 
     init() {
         startHeartbeat()
-        rescheduleHoverTimer()
         if CommandLine.arguments.contains("--demo-test-interval") {
             intervalSeconds = 10
         }
@@ -59,10 +58,10 @@ final class AppState: ObservableObject {
         }
         if CommandLine.arguments.contains("--demo-collapse") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
-                self?.collapsed = true
+                self?.collapseToIcon()
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
-                self?.collapsed = false
+                self?.expand()
             }
         }
     }
@@ -134,7 +133,7 @@ final class AppState: ObservableObject {
     func triggerReminder() {
         reminder = Suggestions.random(excluding: reminder?.title)
         // 有提醒时必须让用户看到
-        if collapsed { collapsed = false }
+        if collapsed { expand() }
     }
 
     func acknowledgeReminder() {
@@ -144,37 +143,49 @@ final class AppState: ObservableObject {
 
     // MARK: - 缩略成图标 / 展开
 
-    private var hoverTimer: Timer?
+    /// 鼠标离开窗口的时刻；在窗口内时为 nil
+    private var leftAt: Date?
 
-    /// 鼠标是否在界面上；离开后开始 10 秒倒计时
-    func setHovering(_ hovering: Bool) {
-        isHovering = hovering
-        rescheduleHoverTimer()
+    /// 由外部定时器每 0.4 秒调用。
+    /// 用"离开时刻 + 轮询判定"而不是"变化事件 + 一次性定时器"：
+    /// 后者在展开后若鼠标本就在窗口外（状态没变化）就不会重新计时。
+    func updateHover(inside: Bool) {
+        isHovering = inside
+        if inside {
+            leftAt = nil
+        } else if leftAt == nil {
+            leftAt = Date()
+        }
+        Debug.log("hover inside=\(inside) leftAt=\(leftAt.map { String(format: "%.1f", $0.timeIntervalSinceNow) } ?? "nil") collapsed=\(collapsed) editing=\(isEditing) reminder=\(reminder != nil)")
+        evaluateCollapse()
     }
 
     /// 正在编辑输入框时不允许缩略
     func setEditing(_ editing: Bool) {
+        guard editing != isEditing else { return }
         isEditing = editing
-        rescheduleHoverTimer()
+        evaluateCollapse()
     }
 
-    func expandFromIcon() {
-        collapsed = false
-        rescheduleHoverTimer()
-    }
-
-    private func rescheduleHoverTimer() {
-        hoverTimer?.invalidate()
-        hoverTimer = nil
-        guard !collapsed, !isHovering, !isEditing, reminder == nil else { return }
-        hoverTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: false) { [weak self] _ in
-            self?.collapseIfIdle()
-        }
-    }
-
-    private func collapseIfIdle() {
-        guard !collapsed, !isHovering, !isEditing, reminder == nil else { return }
+    /// 手动点「缩略」按钮
+    func collapseToIcon() {
         collapsed = true
+        leftAt = nil
+    }
+
+    func expand() {
+        collapsed = false
+        // 重新给满 10 秒，避免刚展开就被判超时又缩回去
+        leftAt = isHovering ? nil : Date()
+    }
+
+    private func evaluateCollapse() {
+        guard !collapsed, !isEditing, !isHovering, reminder == nil,
+              let leftAt else { return }
+        if Date().timeIntervalSince(leftAt) >= 10 {
+            collapsed = true
+            self.leftAt = nil
+        }
     }
 
     // MARK: - 派生值

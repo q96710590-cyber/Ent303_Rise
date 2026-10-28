@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let state = AppState()
     private var cancellables = Set<AnyCancellable>()
+    private var hoverMonitor: Timer?
 
     private let expandedSize = NSSize(width: 320, height: 504)
     private let collapsedSize = NSSize(width: 72, height: 72)
@@ -41,6 +42,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         makePanel()
         makeStatusItem()
         observeCollapse()
+        startHoverMonitor()
+    }
+
+    /// 轮询鼠标是否在窗口内。
+    /// 不用 SwiftUI 的 onHover：窗口成为 key window 后退出事件可能不触发，
+    /// 导致"窗口被选中时移开鼠标永远不缩略"。
+    private func startHoverMonitor() {
+        let t = Timer(timeInterval: 0.4, repeats: true) { [weak self] _ in
+            guard let self, let p = self.panel else { return }
+            self.state.updateHover(inside: p.frame.contains(NSEvent.mouseLocation))
+        }
+        RunLoop.main.add(t, forMode: .common)
+        hoverMonitor = t
     }
 
     // MARK: - 悬浮窗
@@ -67,8 +81,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if let screen = NSScreen.main {
             let f = screen.visibleFrame
-            p.setFrameOrigin(NSPoint(x: f.maxX - expandedSize.width - 24,
-                                     y: f.minY + 36))
+            if CommandLine.arguments.contains("--demo-top-left") {
+                // 测试用：放到左上角，避开鼠标默认所在区域
+                p.setFrameOrigin(NSPoint(x: f.minX + 40,
+                                         y: f.maxY - expandedSize.height - 40))
+            } else {
+                p.setFrameOrigin(NSPoint(x: f.maxX - expandedSize.width - 24,
+                                         y: f.minY + 36))
+            }
         }
 
         p.orderFrontRegardless()

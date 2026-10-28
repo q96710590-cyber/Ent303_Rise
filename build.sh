@@ -27,10 +27,7 @@ mkdir -p build
 swiftc -O -target arm64-apple-macos13.0 \
   -sdk "$SDK" \
   -o build/Ent303_Rise \
-  Sources/Ent303Rise/main.swift \
-  Sources/Ent303Rise/ContentView.swift \
-  Sources/Ent303Rise/AppState.swift \
-  Sources/Ent303Rise/Suggestions.swift \
+  Sources/Ent303Rise/*.swift \
   -framework AppKit -framework SwiftUI
 
 APP="build/Ent303_Rise.app"

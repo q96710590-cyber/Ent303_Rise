@@ -57,7 +57,7 @@ struct ContentView: View {
             .onEnded { value in
                 let moved = abs(value.translation.width) + abs(value.translation.height)
                 if moved < 4 {
-                    state.expandFromIcon()
+                    state.expand()
                 }
                 didDrag = false
             }
@@ -99,7 +99,6 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
         )
-        .onHover { state.setHovering($0) }
         // 外部改动（测试按钮 / 箭头）→ 回写输入框；正在编辑时不打扰
         .onChange(of: state.intervalSeconds) { newValue in
             guard focus == nil else { return }
@@ -172,6 +171,15 @@ struct ContentView: View {
             Text(state.mode == .working ? "计时中" : "已暂停")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
+            Button {
+                state.collapseToIcon()
+            } label: {
+                Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary.opacity(0.75))
+            }
+            .buttonStyle(.plain)
+            .help("缩略为图标")
             Button {
                 NSApp.terminate(nil)
             } label: {
