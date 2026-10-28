@@ -97,8 +97,10 @@ def main():
         cat = trim(Image.open(cat_path).convert("RGBA"))
         cat.save(os.path.join(OUT, "cat.png"))
 
+    first_center = (bboxes[0][0] + bboxes[0][2]) / 2.0
     meta = {
         "canvas": [W, H],
+        "firstCenterX": round(first_center, 2),
         "frameCount": len(frames),
         "delays": delays,
         "sinkFrame": sink,

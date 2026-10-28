@@ -10,6 +10,7 @@ struct IntroMeta: Decodable {
     let condenseFrame: Int
     let catBox: [Int]
     let islandSurface: Double
+    let firstCenterX: Double?
 
     var canvasW: Double { Double(canvas[0]) }
     var canvasH: Double { Double(canvas[1]) }
@@ -68,6 +69,13 @@ struct IntroView: View {
         return cumTimes[meta.condenseFrame]
     }
 
+    /// 猫落稳后的二次左移：从凝结帧开始，1.2 秒内把平台中心移到首帧中心
+    private var shiftProgress: Double {
+        let duration = 1.2
+        let t = min(max((elapsed - condenseTime) / duration, 0), 1)
+        return 1 - pow(1 - t, 3)
+    }
+
     /// 平台进度：下沉开始 → 凝结帧
     private var platformProgress: Double {
         let span = condenseTime - sinkTime
@@ -91,7 +99,9 @@ struct IntroView: View {
                         .resizable()
                         .interpolation(.high)
                         .frame(width: c.islandW, height: c.islandH)
-                        .offset(x: c.islandX + c.platformOffset(progress: platformProgress),
+                        .offset(x: c.islandX
+                                   + c.platformOffset(progress: platformProgress)
+                                   - c.shiftDistance * shiftProgress,
                                 y: c.islandY)
                 }
 
@@ -101,7 +111,8 @@ struct IntroView: View {
                         .resizable()
                         .interpolation(.high)
                         .frame(width: c.canvasW, height: c.canvasH)
-                        .offset(x: c.canvasX, y: c.canvasY)
+                        .offset(x: c.canvasX - c.shiftDistance * shiftProgress,
+                                y: c.canvasY)
                 }
 
                 // 结束阶段：静态猫顶替尾帧的猫
@@ -110,7 +121,7 @@ struct IntroView: View {
                         .resizable()
                         .interpolation(.high)
                         .frame(width: c.catW, height: c.catH)
-                        .offset(x: c.catX, y: c.catY)
+                        .offset(x: c.catX - c.shiftDistance, y: c.catY)
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
@@ -236,6 +247,16 @@ struct Composition {
     var islandX: Double {
         let raw = catCenterX - islandW * catCenterRatio
         return min(max(raw, 2), max(2, W - islandW - 2))
+    }
+
+    /// 首帧内容的水平中心（容器坐标）
+    var firstFrameCenterX: Double {
+        canvasX + (meta?.firstCenterX ?? 300) * scale
+    }
+
+    /// 猫落稳后需要继续左移的距离：把平台中心挪到首帧中心
+    var shiftDistance: Double {
+        (islandX + islandW / 2) - firstFrameCenterX
     }
 
     /// 平台顶面（猫脚处）与画布里猫底对齐
