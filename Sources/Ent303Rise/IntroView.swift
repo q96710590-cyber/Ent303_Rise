@@ -44,6 +44,13 @@ struct IntroView: View {
     @State private var menuExpanded = !CommandLine.arguments.contains("--demo-menu-collapsed")
     /// 商店/背包面板是否打开
     @State private var panelOpen = CommandLine.arguments.contains("--demo-panel")
+    /// 每个 Tab 各自的页码（最多 2 页，每页 8 格）
+    @State private var shopPages = {
+        let p = CommandLine.arguments
+            .first(where: { $0.hasPrefix("--demo-shop-page=") })
+            .flatMap { Int($0.dropFirst("--demo-shop-page=".count)) } ?? 0
+        return [p, p, p, p]
+    }()
     /// 当前 Tab：0 FOOD / 1 PLANT / 2 BEDS / 3 ACCS
     @State private var panelTab = CommandLine.arguments
         .first(where: { $0.hasPrefix("--demo-panel-tab=") })
@@ -229,12 +236,79 @@ struct IntroView: View {
                     .interpolation(.high)
                     .frame(width: c.panelW, height: c.panelH)
 
-                // 顶部四个 Tab：高亮 + 命中区（位置由素材实测）
+                // 8 个格子里的物品
+                itemGrid(c, tab: name)
+
+                // 顶部四个 Tab 的命中区（位置由素材实测）
                 ForEach(0..<4, id: \.self) { i in
                     tabHitArea(c, index: i)
                 }
+
+                // 翻页按钮：只有存在对应方向的页才显示
+                pageArrows(c)
             }
             .offset(x: c.panelX, y: c.panelY)
+        }
+    }
+
+    /// 8 个格子里的物品
+    @ViewBuilder
+    private func itemGrid(_ c: Composition, tab: String) -> some View {
+        let page = shopPages[min(panelTab, 3)]
+        ForEach(0..<Composition.itemsPerPage, id: \.self) { i in
+            let index = page * Composition.itemsPerPage + i
+            if let img = Composition.shopImage(tab: tab, index: index) {
+                let col = i % 4
+                let row = i / 4
+                let (x0, x1) = Composition.slotCols[col]
+                let (y0, y1) = Composition.slotRows[row]
+                let inset = 0.06
+                Image(nsImage: img)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: c.panelW * (x1 - x0) * (1 - inset*2),
+                           height: c.panelH * (y1 - y0) * (1 - inset*2))
+                    .offset(x: c.panelW * (x0 + (x1 - x0) * inset),
+                            y: c.panelH * (y0 + (y1 - y0) * inset))
+            }
+        }
+    }
+
+    /// 左右翻页按钮；第一页只有右箭头，最后一页只有左箭头
+    @ViewBuilder
+    private func pageArrows(_ c: Composition) -> some View {
+        let page = shopPages[min(panelTab, 3)]
+        let pageCount = Composition.pageCount(tab: Self.panelNames[min(panelTab, 3)])
+        let size = c.panelW * 0.085
+
+        if page > 0 {
+            arrowButton(c, size: size, forward: false) {
+                shopPages[min(panelTab, 3)] = max(0, page - 1)
+            }
+            .offset(x: -size * 0.45, y: c.panelH * 0.44)
+        }
+        if page < pageCount - 1 {
+            arrowButton(c, size: size, forward: true) {
+                shopPages[min(panelTab, 3)] = min(pageCount - 1, page + 1)
+            }
+            .offset(x: c.panelW - size * 0.55, y: c.panelH * 0.44)
+        }
+    }
+
+    @ViewBuilder
+    private func arrowButton(_ c: Composition,
+                             size: Double,
+                             forward: Bool,
+                             action: @escaping () -> Void) -> some View {
+        if let img = Composition.menuImage("play") {
+            Image(nsImage: img)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: size, height: size)
+                .scaleEffect(x: forward ? 1 : -1, y: 1)
+                .contentShape(Circle())
+                .onTapGesture(perform: action)
         }
     }
 
@@ -413,6 +487,48 @@ struct Composition {
     var panelY: Double {
         let catTop = catBottomY - catH
         return max(4, min(8, catTop - 8 - panelH))
+    }
+
+    // MARK: - 格子与物品
+
+    /// 每页格子数
+    static let itemsPerPage = 8
+
+    /// 4 列的归一化 x 范围（素材实测）
+    static let slotCols: [(Double, Double)] = [
+        (0.1038, 0.2708), (0.3118, 0.4788), (0.5208, 0.6878), (0.7295, 0.8965)
+    ]
+    /// 2 行的归一化 y 范围
+    static let slotRows: [(Double, Double)] = [
+        (0.3622, 0.5628), (0.6233, 0.8239)
+    ]
+
+    private static var shopCache: [String: NSImage] = [:]
+    private static var pageCountCache: [String: Int] = [:]
+
+    /// 取某个分类的第 index 个物品
+    static func shopImage(tab: String, index: Int) -> NSImage? {
+        guard index >= 0 else { return nil }
+        let key = "\(tab)_\(index)"
+        if let cached = shopCache[key] { return cached }
+        let name = String(format: "%@_%02d", tab, index)
+        guard let url = Bundle.main.url(forResource: name,
+                                        withExtension: "png",
+                                        subdirectory: "shop/\(tab)") else { return nil }
+        shopCache[key] = NSImage(contentsOf: url)
+        return shopCache[key]
+    }
+
+    /// 该分类共几页
+    static func pageCount(tab: String) -> Int {
+        if let cached = pageCountCache[tab] { return cached }
+        var count = 0
+        if let dir = Bundle.main.resourceURL?.appendingPathComponent("shop/\(tab)") {
+            count = (try? FileManager.default.contentsOfDirectory(atPath: dir.path))?.count ?? 0
+        }
+        let pages = max(1, Int(ceil(Double(count) / Double(itemsPerPage))))
+        pageCountCache[tab] = pages
+        return pages
     }
 
     /// Tab 命中区（相对面板宽度的归一化值，由素材实测）
