@@ -38,7 +38,7 @@ struct ContentView: View {
             }
         }
         .padding(16)
-        .frame(width: 320, height: 548, alignment: .top)
+        .frame(width: 440, height: 548, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -159,16 +159,90 @@ struct ContentView: View {
         )
     }
 
-    /// 第 2 页：开屏动画（每次切到本页都会重播）
-    @ViewBuilder
+    /// 第 2 页：左侧宠物，右侧留给到点提醒弹窗
     private var page2: some View {
-        IntroView()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.black.opacity(0.04))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        HStack(spacing: 12) {
+            IntroView()
+                .frame(width: 248)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.black.opacity(0.04))
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            // 提醒位：有提醒时显示卡片，否则留空
+            reminderSlot
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        }
+    }
+
+    @ViewBuilder
+    private var reminderSlot: some View {
+        if let r = state.reminder {
+            reminderCard(r)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+        } else {
+            Color.clear
+        }
+    }
+
+    /// 到点提醒卡片（配色取自现有美术：奶油底 + 深褐描边 + 面板黄）
+    private func reminderCard(_ s: Suggestion) -> some View {
+        let brown = Color(red: 0.36, green: 0.31, blue: 0.30)
+        let cream = Color(red: 1.0, green: 0.98, blue: 0.88)
+        let yellow = Color(red: 1.0, green: 0.81, blue: 0.39)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("已连续 \(state.workSeconds / 60) 分钟")
+                .font(.system(size: 10))
+                .foregroundStyle(brown.opacity(0.55))
+
+            Text(s.title)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(brown)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(s.detail)
+                .font(.system(size: 10))
+                .foregroundStyle(brown.opacity(0.7))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                    state.acknowledgeReminder()
+                }
+            } label: {
+                Text("我起来了")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(brown)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(yellow))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                    state.triggerReminder()
+                }
+            } label: {
+                Text("再等等")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(brown.opacity(0.75))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+                    .background(Capsule().strokeBorder(brown.opacity(0.35), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(cream)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(brown.opacity(0.55), lineWidth: 1.5)
+        )
     }
 
     // MARK: - 顶部
