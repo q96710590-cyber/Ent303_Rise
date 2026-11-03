@@ -243,7 +243,12 @@ struct IntroView: View {
     }
 }
 
-/// 一次布局计算：所有尺寸与坐标都由容器大小推出
+/// 一次布局计算：所有尺寸与坐标都由容器大小推出。
+///
+/// 关键设计：**猫的尺寸与平台的尺寸解耦**。
+/// 平台按 islandWidthRatio 放大，猫保持固定的容器相对宽度；
+/// 猫在平台上的位置用两个比例描述（横向 30%、纵向 40.6%），
+/// 因此平台变大时猫会自动落在对应的新位置。
 struct Composition {
     let W: Double
     let H: Double
@@ -255,31 +260,99 @@ struct Composition {
         self.meta = meta
     }
 
+    // MARK: - 比例常量
+
     /// 平台宽度 / 容器宽度
     private let islandWidthRatio = 0.78
-    /// 猫宽 / 平台宽（设计稿测量）
-    private let catToIsland = 0.34
-    /// 猫中心位于平台宽度的 30%（设计稿测量）
+    /// 猫宽度 / 容器宽度（固定值，不随平台变化）
+    private let catWidthRatio = 0.62 * 0.34
+    /// 猫中心 X 位于平台宽度的 30%
     private let catCenterRatio = 0.30
-    /// 猫脚落在平台高度的多少比例处（0 = 平台顶边）
-    /// 由设计稿红线标注测得：0.406（原来只沉到顶边附近，猫是"浮"在平台上的）
+    /// 猫脚位于平台高度的 40.6%
     private let seatDepthRatio = 0.406
+    /// 平台垂直中心 / 容器高度
+    private let islandCenterRatio = 0.5625
+    /// 静态猫相对 GIF 尾帧猫的放大系数（校准替换跳变）
+    private let staticCatScale = 1.025
+
+    // MARK: - 平台
+
+    var islandW: Double { W * islandWidthRatio }
+
+    var islandH: Double {
+        guard let img = Self.islandImage, img.size.width > 0 else { return islandW * 0.35 }
+        return islandW * (img.size.height / img.size.width)
+    }
+
+    /// 平台不居中：由猫的位置反推（画布居中优先，保证字母完整）
+    var islandX: Double { catCenterX - islandW * catCenterRatio }
+    var islandY: Double { H * islandCenterRatio - islandH / 2 }
+
+    // MARK: - 猫
+
+    /// 画布缩放：由猫的固定宽度反推
+    var scale: Double {
+        guard let meta, meta.catW > 0 else { return 0.36 }
+        return (W * catWidthRatio) / meta.catW
+    }
+
+    var canvasW: Double { (meta?.canvasW ?? 600) * scale }
+    var canvasH: Double { (meta?.canvasH ?? 757) * scale }
+
+    /// 猫脚所在的 y
+    var catBottomY: Double { islandY + seatDepthRatio * islandH }
+
+    /// 画布水平居中（开屏字母要完整显示）
+    var canvasX: Double { (W - canvasW) / 2 }
+
+    /// 猫中心 X 直接由画布推出
+    var catCenterX: Double {
+        guard let meta else { return W / 2 }
+        let canvasCatCenter = Double(meta.catBox[0] + meta.catBox[2]) / 2
+        return canvasX + canvasCatCenter * scale
+    }
+
+    var canvasY: Double {
+        guard let meta else { return 0 }
+        return catBottomY - Double(meta.catBox[3]) * scale
+    }
+
+    // MARK: - 静态猫（替换 GIF 尾帧）
+
+    var catW: Double { (meta?.catW ?? 171) * scale * staticCatScale }
+    var catH: Double { (meta?.catH ?? 168) * scale * staticCatScale }
+    var catX: Double { catCenterX - catW / 2 }
+    var catY: Double { catBottomY - catH }
+
+    // MARK: - 第二段位移
+
+    /// 首帧内容的水平中心（容器坐标）
+    var firstFrameCenterX: Double {
+        canvasX + (meta?.firstCenterX ?? 300) * scale
+    }
+
+    /// 猫落稳后继续左移的距离：把平台中心挪到首帧中心
+    var shiftDistance: Double {
+        (islandX + islandW / 2) - firstFrameCenterX
+    }
+
+    func platformOffset(progress: Double) -> Double {
+        (1 - progress) * (W + islandW)
+    }
+
+    // MARK: - 平台下方菜单
+
+    var menuIconSize: Double { islandW * 0.160 }
+    var menuLogoSize: Double { islandW * 0.218 }
+    var menuSpacing: Double { menuIconSize * 0.32 }
+    var menuRightOverflow: Double { islandW * 0.08 }
+    var menuGapBelow: Double { islandW * 0.03 }
+
+    // MARK: - 素材
 
     private static var cachedIsland: NSImage?
     private static var cachedCat: NSImage?
-
     private static var menuCache: [String: NSImage] = [:]
-
-    /// 菜单图标（play / focus / shop / backpack / logo）
-    static func menuImage(_ name: String) -> NSImage? {
-        if let cached = menuCache[name] { return cached }
-        // logo 复用根目录的 logo.png
-        let sub: String? = (name == "logo") ? nil : "menu"
-        guard let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: sub),
-              let img = NSImage(contentsOf: url) else { return nil }
-        menuCache[name] = img
-        return img
-    }
 
     static var islandImage: NSImage? {
         if let cachedIsland { return cachedIsland }
@@ -295,88 +368,12 @@ struct Composition {
         return cachedCat
     }
 
-    var islandW: Double { W * islandWidthRatio }
-
-    var islandH: Double {
-        guard let img = Self.islandImage, img.size.width > 0 else { return islandW * 0.6 }
-        return islandW * (img.size.height / img.size.width)
-    }
-
-    /// 画布缩放：让画布里的猫宽等于目标猫宽
-    var scale: Double {
-        guard let meta, meta.catW > 0 else { return 0.36 }
-        return (islandW * catToIsland) / meta.catW
-    }
-
-    var canvasW: Double { (meta?.canvasW ?? 600) * scale }
-    var canvasH: Double { (meta?.canvasH ?? 757) * scale }
-    /// 画布水平居中
-    var canvasX: Double { (W - canvasW) / 2 }
-    var canvasY: Double { 0 }
-
-    /// 画布里的猫中心（换算到容器坐标）
-    var catCenterX: Double {
-        guard let meta else { return W / 2 }
-        let canvasCatCenter = Double(meta.catBox[0] + meta.catBox[2]) / 2
-        return canvasX + canvasCatCenter * scale
-    }
-
-    /// 静态猫相对 GIF 尾帧猫的放大系数。
-    /// 实测静态猫比尾帧矮 4%、身体窄 6%，直接替换会看到明显"缩了一下"。
-    private let staticCatScale = 1.025
-
-    var catW: Double { (meta?.catW ?? 171) * scale * staticCatScale }
-    var catH: Double { (meta?.catH ?? 168) * scale * staticCatScale }
-
-    /// 以 GIF 尾帧猫的中心为水平锚点
-    var catX: Double {
-        guard let meta else { return canvasX }
-        let center = canvasX + Double(meta.catBox[0] + meta.catBox[2]) / 2 * scale
-        return center - catW / 2
-    }
-
-    /// 以 GIF 尾帧猫的底边（猫脚）为垂直锚点
-    var catY: Double {
-        guard let meta else { return canvasY }
-        let bottom = canvasY + Double(meta.catBox[3]) * scale
-        return bottom - catH
-    }
-
-    /// 平台跟着猫走：猫中心落在平台宽度的 30% 处，并夹在容器内
-    var islandX: Double {
-        let raw = catCenterX - islandW * catCenterRatio
-        return min(max(raw, 2), max(2, W - islandW - 2))
-    }
-
-    // 平台下方菜单尺寸：按参考图测量，均为相对平台宽度的比例
-    /// 按钮直径 / 平台宽（比参考图再放大约 13%）
-    var menuIconSize: Double { islandW * 0.160 }
-    /// LOGO 直径 / 平台宽，约为按钮的 1.36 倍
-    var menuLogoSize: Double { islandW * 0.218 }
-    /// 按钮间距 = 0.32 × 按钮直径
-    var menuSpacing: Double { menuIconSize * 0.32 }
-    /// 整排右端超出平台右边缘的量，允许 Logo 略微出界
-    var menuRightOverflow: Double { islandW * 0.08 }
-    /// 按钮行与平台底边的间隙 = 0.03 × 平台宽
-    var menuGapBelow: Double { islandW * 0.03 }
-
-    /// 首帧内容的水平中心（容器坐标）
-    var firstFrameCenterX: Double {
-        canvasX + (meta?.firstCenterX ?? 300) * scale
-    }
-
-    /// 猫落稳后需要继续左移的距离：把平台中心挪到首帧中心
-    var shiftDistance: Double {
-        (islandX + islandW / 2) - firstFrameCenterX
-    }
-
-    /// 平台顶面（猫脚处）与画布里猫底对齐
-    var islandY: Double {
-        let catBottom = canvasY + Double(meta?.catBox[3] ?? 690) * scale
-        return catBottom - seatDepthRatio * islandH
-    }
-
-    func platformOffset(progress: Double) -> Double {
-        (1 - progress) * (W + islandW)
+    static func menuImage(_ name: String) -> NSImage? {
+        if let cached = menuCache[name] { return cached }
+        let sub: String? = (name == "logo") ? nil : "menu"
+        guard let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: sub),
+              let img = NSImage(contentsOf: url) else { return nil }
+        menuCache[name] = img
+        return img
     }
 }
