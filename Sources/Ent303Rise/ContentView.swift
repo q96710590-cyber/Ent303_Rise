@@ -10,7 +10,7 @@ struct ContentView: View {
     @State private var secondsInput: String = "0"
 
     /// 界面语言（false = 中文，true = English）
-    @State private var isEnglish = false
+    @State private var isEnglish = CommandLine.arguments.contains("--demo-english")
 
     private func t(_ zh: String, _ en: String) -> String { isEnglish ? en : zh }
 
@@ -233,12 +233,12 @@ struct ContentView: View {
                 .font(.system(size: 10))
                 .foregroundStyle(brown.opacity(0.55))
 
-            Text(s.title)
+            Text(s.title(en: isEnglish))
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(brown)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(s.detail)
+            Text(s.detail(en: isEnglish))
                 .font(.system(size: 10))
                 .foregroundStyle(brown.opacity(0.7))
                 .fixedSize(horizontal: false, vertical: true)
