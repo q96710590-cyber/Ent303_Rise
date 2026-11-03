@@ -169,6 +169,24 @@ struct ContentView: View {
                         .fill(Color.black.opacity(0.04))
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(alignment: .bottom) {
+                    // 测试用：预览提醒弹窗
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                            state.triggerReminder()
+                        }
+                    } label: {
+                        Text("预览提醒")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.white.opacity(0.55)))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 10)
+                    .help("测试用：立即弹出提醒卡片")
+                }
 
             // 提醒位：有提醒时显示卡片，否则留空
             reminderSlot
@@ -238,10 +256,6 @@ struct ContentView: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous).fill(cream)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(brown.opacity(0.55), lineWidth: 1.5)
         )
     }
 
