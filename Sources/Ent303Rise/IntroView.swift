@@ -129,7 +129,7 @@ struct IntroView: View {
                 // 平台下方的一排按钮 + LOGO
                 menuRow(c)
                     .frame(width: c.islandX + c.islandW - c.shiftDistance, alignment: .trailing)
-                    .offset(y: c.islandY + c.islandH + 14)
+                    .offset(y: c.islandY + c.islandH + c.menuGapBelow)
                     .opacity(menuVisible ? 1 : 0)
                     .animation(.easeOut(duration: 0.35), value: menuVisible)
             }
@@ -154,7 +154,7 @@ struct IntroView: View {
 
     @ViewBuilder
     private func menuRow(_ c: Composition) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: c.menuSpacing) {
             // 展开 / 收起键（播放图标，收起时水平镜像朝左）
             Button {
                 withAnimation(.spring(response: 0.36, dampingFraction: 0.78)) {
@@ -165,7 +165,7 @@ struct IntroView: View {
                     Image(nsImage: img)
                         .resizable()
                         .interpolation(.high)
-                        .frame(width: 34, height: 34)
+                        .frame(width: c.menuIconSize, height: c.menuIconSize)
                         .scaleEffect(x: menuExpanded ? 1 : -1, y: 1)
                 }
             }
@@ -173,11 +173,11 @@ struct IntroView: View {
             .help(menuExpanded ? "收起" : "展开")
 
             if menuExpanded {
-                menuButton("focus")
+                menuButton("focus", size: c.menuIconSize)
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
-                menuButton("shop")
+                menuButton("shop", size: c.menuIconSize)
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
-                menuButton("backpack")
+                menuButton("backpack", size: c.menuIconSize)
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
             }
 
@@ -186,12 +186,12 @@ struct IntroView: View {
                 Image(nsImage: logo)
                     .resizable()
                     .interpolation(.high)
-                    .frame(width: 40, height: 40)
+                    .frame(width: c.menuLogoSize, height: c.menuLogoSize)
             }
         }
     }
 
-    private func menuButton(_ name: String) -> some View {
+    private func menuButton(_ name: String, size: Double) -> some View {
         Button {
             // 功能待接入
         } label: {
@@ -204,7 +204,7 @@ struct IntroView: View {
                     Color.clear
                 }
             }
-            .frame(width: 32, height: 32)
+            .frame(width: size, height: size)
         }
         .buttonStyle(.plain)
     }
@@ -330,6 +330,16 @@ struct Composition {
         let raw = catCenterX - islandW * catCenterRatio
         return min(max(raw, 2), max(2, W - islandW - 2))
     }
+
+    // 平台下方菜单尺寸：按参考图测量，均为相对平台宽度的比例
+    /// 按钮直径 / 平台宽 = 0.141
+    var menuIconSize: Double { islandW * 0.141 }
+    /// LOGO 直径 / 平台宽 = 0.197（约为按钮的 1.40 倍）
+    var menuLogoSize: Double { islandW * 0.197 }
+    /// 按钮间距 = 0.28 × 按钮直径
+    var menuSpacing: Double { menuIconSize * 0.28 }
+    /// 按钮行与平台底边的间隙 = 0.03 × 平台宽
+    var menuGapBelow: Double { islandW * 0.03 }
 
     /// 首帧内容的水平中心（容器坐标）
     var firstFrameCenterX: Double {
