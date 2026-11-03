@@ -51,6 +51,17 @@ struct IntroView: View {
             .flatMap { Int($0.dropFirst("--demo-shop-page=".count)) } ?? 0
         return [p, p, p, p]
     }()
+    enum PanelMode { case shop, backpack }
+
+    /// 面板模式：商店（购物车打开）或背包（背包打开）
+    @State private var panelMode: PanelMode = .shop
+    /// 已购物品：key = "tab_index"，value = 数量
+    @State private var owned: [String: Int] = [:]
+    /// 每个分类的货架：16 个槽位，nil 表示已被买走后的空位
+    @State private var layout: [String: [Int?]] = [:]
+    @State private var coinAnim: CoinState?
+    @State private var coinSeq = 0
+
     /// 当前 Tab：0 FOOD / 1 PLANT / 2 BEDS / 3 ACCS
     @State private var panelTab = CommandLine.arguments
         .first(where: { $0.hasPrefix("--demo-panel-tab=") })
@@ -164,9 +175,19 @@ struct IntroView: View {
             finished = false
             loadFrame(0)
             state.introPlaying = true
+            if layout.isEmpty {
+                layout = Dictionary(uniqueKeysWithValues:
+                    Self.panelNames.map { ($0, (0..<16).map { Optional($0) }) })
+            }
         }
         .onDisappear {
             state.introPlaying = false
+        }
+        .onChange(of: finished) { done in
+            guard done, CommandLine.arguments.contains("--demo-buy") else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                buy(tab: Self.panelNames[min(panelTab, 3)], slot: 2)
+            }
         }
     }
 
@@ -198,15 +219,26 @@ struct IntroView: View {
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
                 menuButton("shop", size: c.menuIconSize) {
                     withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
-                        panelTab = 0
-                        panelOpen.toggle()
+                        if panelOpen && panelMode == .shop {
+                            panelOpen = false
+                        } else {
+                            panelMode = .shop
+                            compactLayouts()
+                            panelTab = 0
+                            panelOpen = true
+                        }
                     }
                 }
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
                 menuButton("backpack", size: c.menuIconSize) {
                     withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
-                        panelTab = 3
-                        panelOpen.toggle()
+                        if panelOpen && panelMode == .backpack {
+                            panelOpen = false
+                        } else {
+                            panelMode = .backpack
+                            panelTab = 0
+                            panelOpen = true
+                        }
                     }
                 }
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
@@ -225,6 +257,14 @@ struct IntroView: View {
     // MARK: - 商店 / 背包面板
 
     private static let panelNames = ["food", "plant", "beds", "accs"]
+    /// 一次性购买的类目：买完留空，下次打开面板时重排补位
+    private static let oneShotTabs: Set<String> = ["beds", "accs"]
+
+    struct CoinState: Equatable {
+        let tab: String
+        let slot: Int
+        let id: Int
+    }
 
     @ViewBuilder
     private func panelView(_ c: Composition) -> some View {
@@ -236,53 +276,137 @@ struct IntroView: View {
                     .interpolation(.high)
                     .frame(width: c.panelW, height: c.panelH)
 
-                // 8 个格子里的物品
                 itemGrid(c, tab: name)
+                coinOverlay(c, tab: name)
 
-                // 顶部四个 Tab 的命中区（位置由素材实测）
                 ForEach(0..<4, id: \.self) { i in
                     tabHitArea(c, index: i)
                 }
-
-                // 翻页按钮：只有存在对应方向的页才显示
                 pageArrows(c)
             }
             .offset(x: c.panelX, y: c.panelY)
         }
     }
 
-    /// 8 个格子里的物品
+    // MARK: 列表
+
+    /// 当前页第 slot 格的物品索引；空格为 nil
+    private func itemIndex(tab: String, slot: Int) -> Int? {
+        let list: [Int?] = (panelMode == .shop)
+            ? (layout[tab] ?? [])
+            : backpackIndices(tab)
+        let i = shopPages[min(panelTab, 3)] * Composition.itemsPerPage + slot
+        guard i < list.count else { return nil }
+        return list[i]
+    }
+
+    /// 背包里该分类已拥有的物品（升序）
+    private func backpackIndices(_ tab: String) -> [Int?] {
+        owned.keys
+            .filter { $0.hasPrefix(tab + "_") }
+            .compactMap { Int($0.dropFirst(tab.count + 1)) }
+            .sorted()
+            .map { Optional($0) }
+    }
+
+    private func listCount(tab: String) -> Int {
+        (panelMode == .shop) ? (layout[tab] ?? []).count : backpackIndices(tab).count
+    }
+
+    /// 打开面板时把空格压缩掉（一次性类目买完后补位）
+    private func compactLayouts() {
+        for tab in Self.panelNames {
+            guard let arr = layout[tab] else { continue }
+            layout[tab] = arr.compactMap { $0 }.map { Optional($0) }
+        }
+    }
+
+    // MARK: 格子
+
+    private func slotRect(_ c: Composition, slot: Int)
+        -> (x: Double, y: Double, width: Double, height: Double) {
+        let col = slot % 4
+        let row = slot / 4
+        let (x0, x1) = Composition.slotCols[col]
+        let (y0, y1) = Composition.slotRows[row]
+        let inset = 0.035
+        return (c.panelW * (x0 + (x1 - x0) * inset),
+                c.panelH * (y0 + (y1 - y0) * inset),
+                c.panelW * (x1 - x0) * (1 - inset * 2),
+                c.panelH * (y1 - y0) * (1 - inset * 2))
+    }
+
     @ViewBuilder
     private func itemGrid(_ c: Composition, tab: String) -> some View {
-        let page = shopPages[min(panelTab, 3)]
-        ForEach(0..<Composition.itemsPerPage, id: \.self) { i in
-            let index = page * Composition.itemsPerPage + i
-            if let img = Composition.shopImage(tab: tab, index: index) {
-                let col = i % 4
-                let row = i / 4
-                let (x0, x1) = Composition.slotCols[col]
-                let (y0, y1) = Composition.slotRows[row]
-                let inset = 0.035
+        ForEach(0..<Composition.itemsPerPage, id: \.self) { slot in
+            if let index = itemIndex(tab: tab, slot: slot),
+               let img = Composition.shopImage(tab: tab, index: index) {
+                let r = slotRect(c, slot: slot)
                 Image(nsImage: img)
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
-                    .frame(width: c.panelW * (x1 - x0) * (1 - inset*2),
-                           height: c.panelH * (y1 - y0) * (1 - inset*2))
-                    .offset(x: c.panelW * (x0 + (x1 - x0) * inset),
-                            y: c.panelH * (y0 + (y1 - y0) * inset))
+                    .frame(width: r.width, height: r.height)
+                    .contentShape(Rectangle())
+                    .onTapGesture { buy(tab: tab, slot: slot) }
+                    .offset(x: r.x, y: r.y)
             }
         }
     }
 
-    /// 左右翻页按钮；第一页只有右箭头，最后一页只有左箭头
+    // MARK: 购买
+
+    private func buy(tab: String, slot: Int) {
+        guard panelMode == .shop, let index = itemIndex(tab: tab, slot: slot) else { return }
+        let key = "\(tab)_\(index)"
+
+        if Self.oneShotTabs.contains(tab) {
+            guard (owned[key] ?? 0) == 0 else { return }
+            owned[key] = 1
+            // 当前会话先留空，下次打开面板时重排补位
+            let pos = shopPages[min(panelTab, 3)] * Composition.itemsPerPage + slot
+            if var arr = layout[tab], pos < arr.count {
+                arr[pos] = nil
+                layout[tab] = arr
+            }
+        } else {
+            owned[key, default: 0] += 1
+        }
+
+        coinSeq += 1
+        let id = coinSeq
+        coinAnim = CoinState(tab: tab, slot: slot, id: id)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [id] in
+            if coinAnim?.id == id { coinAnim = nil }
+        }
+    }
+
+    /// 购买动画：金币从格子中心升起并淡出（GIF 只播一遍，尺寸按设计稿比例）
+    @ViewBuilder
+    private func coinOverlay(_ c: Composition, tab: String) -> some View {
+        if let coin = coinAnim, coin.tab == tab,
+           let url = Bundle.main.url(forResource: "coin", withExtension: "gif") {
+            let r = slotRect(c, slot: coin.slot)
+            // GIF 里金币约占画布 27%，据此反推视图尺寸
+            let coinD = r.width * 0.35
+            let side = coinD / 0.27
+            AnimatedGIFView(url: url)
+                .frame(width: side, height: side)
+                .allowsHitTesting(false)
+                .offset(x: r.x + r.width / 2 - side / 2,
+                        y: r.y + r.height / 2 - side / 2)
+        }
+    }
+
+    // MARK: 翻页
+
     @ViewBuilder
     private func pageArrows(_ c: Composition) -> some View {
         let page = shopPages[min(panelTab, 3)]
-        let pageCount = Composition.pageCount(tab: Self.panelNames[min(panelTab, 3)])
+        let name = Self.panelNames[min(panelTab, 3)]
+        let count = listCount(tab: name)
+        let pageCount = max(1, Int(ceil(Double(count) / Double(Composition.itemsPerPage))))
         let size = c.panelW * 0.0815
-
-        // 圆心位置由设计稿实测：x 0.923 / 0.077，y 0.545
         let centerY = c.panelH * 0.545 - size / 2
 
         if page > 0 {
@@ -315,7 +439,7 @@ struct IntroView: View {
         }
     }
 
-    /// 单个 Tab：激活时叠一层黄色高亮，同时提供可点击区域
+    /// 单个 Tab 的命中区
     @ViewBuilder
     private func tabHitArea(_ c: Composition, index i: Int) -> some View {
         let w = c.panelW * Composition.panelTabWidth
@@ -323,6 +447,7 @@ struct IntroView: View {
         let x = c.panelW * (Composition.panelTabStart
                             + Composition.panelTabWidth * Double(i))
         let y = c.panelH * 0.245
+
         Color.clear
             .frame(width: w, height: h)
             .contentShape(Rectangle())
