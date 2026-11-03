@@ -426,7 +426,8 @@ struct IntroView: View {
         let count = listCount(tab: name)
         let pageCount = max(1, Int(ceil(Double(count) / Double(Composition.itemsPerPage))))
         let size = c.panelW * 0.0815
-        let centerY = c.panelH * 0.545 - size / 2
+        // 两行格子的间隙中心 = (0.5628 + 0.6233) / 2
+        let centerY = c.panelH * 0.593 - size / 2
 
         if page > 0 {
             arrowButton(c, size: size, forward: false) {
@@ -442,19 +443,40 @@ struct IntroView: View {
         }
     }
 
-    @ViewBuilder
+    /// 翻页按钮：灰色圆底 + 深色描边 + 奶油色三角（不使用菜单里的播放图标）
     private func arrowButton(_ c: Composition,
                              size: Double,
                              forward: Bool,
                              action: @escaping () -> Void) -> some View {
-        if let img = Composition.menuImage("play") {
-            Image(nsImage: img)
-                .resizable()
-                .interpolation(.high)
-                .frame(width: size, height: size)
-                .scaleEffect(x: forward ? 1 : -1, y: 1)
-                .contentShape(Circle())
-                .onTapGesture(perform: action)
+        ZStack {
+            Circle().fill(Color(white: 0.85))
+            Circle().strokeBorder(Color(red: 0.36, green: 0.30, blue: 0.29),
+                                  lineWidth: max(1, size * 0.07))
+            ArrowTriangle()
+                .fill(Color(red: 0.99, green: 0.96, blue: 0.86))
+                .overlay(
+                    ArrowTriangle()
+                        .stroke(Color(red: 0.36, green: 0.30, blue: 0.29),
+                                lineWidth: max(0.8, size * 0.05))
+                )
+                .frame(width: size * 0.30, height: size * 0.36)
+                .rotationEffect(.degrees(forward ? 0 : 180))
+                .offset(x: size * 0.015 * (forward ? 1 : -1))
+        }
+        .frame(width: size, height: size)
+        .contentShape(Circle())
+        .onTapGesture(perform: action)
+    }
+
+    /// 翻页三角
+    struct ArrowTriangle: Shape {
+        func path(in rect: CGRect) -> Path {
+            var p = Path()
+            p.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            p.closeSubpath()
+            return p
         }
     }
 
