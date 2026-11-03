@@ -41,7 +41,7 @@ struct IntroView: View {
     @State private var frameImage: NSImage?
     @State private var finished = false
     /// 平台下方那一排按钮是否展开
-    @State private var menuExpanded = !CommandLine.arguments.contains("--demo-menu-collapsed")
+    @State private var menuExpanded = CommandLine.arguments.contains("--demo-menu-expanded")
     /// 商店/背包面板是否打开
     @State private var panelOpen = CommandLine.arguments.contains("--demo-panel")
     /// 每个 Tab 各自的页码（最多 2 页，每页 8 格）

@@ -9,6 +9,11 @@ struct ContentView: View {
     @State private var minutesInput: String = "45"
     @State private var secondsInput: String = "0"
 
+    /// 界面语言（false = 中文，true = English）
+    @State private var isEnglish = false
+
+    private func t(_ zh: String, _ en: String) -> String { isEnglish ? en : zh }
+
     enum DurationFocus: Hashable { case hours, minutes, seconds }
     @FocusState private var focus: DurationFocus?
 
@@ -170,22 +175,35 @@ struct ContentView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(alignment: .bottom) {
-                    // 测试用：预览提醒弹窗
-                    Button {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
-                            state.triggerReminder()
+                    // 测试用：预览弹窗 + 中英切换
+                    HStack(spacing: 6) {
+                        Button {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                                state.triggerReminder()
+                            }
+                        } label: {
+                            Text(t("预览提醒", "Preview"))
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color.white.opacity(0.55)))
                         }
-                    } label: {
-                        Text("预览提醒")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Capsule().fill(Color.white.opacity(0.55)))
+                        .buttonStyle(.plain)
+
+                        Button {
+                            isEnglish.toggle()
+                        } label: {
+                            Text(isEnglish ? "EN" : "中")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 24, height: 20)
+                                .background(Capsule().fill(Color.white.opacity(0.55)))
+                        }
+                        .buttonStyle(.plain)
+                        .help(isEnglish ? "切换到中文" : "Switch to English")
                     }
-                    .buttonStyle(.plain)
                     .padding(.bottom, 10)
-                    .help("测试用：立即弹出提醒卡片")
                 }
 
             // 提醒位：有提醒时显示卡片，否则留空
@@ -211,7 +229,7 @@ struct ContentView: View {
         let yellow = Color(red: 1.0, green: 0.81, blue: 0.39)
 
         return VStack(alignment: .leading, spacing: 10) {
-            Text("已连续 \(state.workSeconds / 60) 分钟")
+            Text(isEnglish ? "Seated for \(state.workSeconds / 60) min" : "已连续 \(state.workSeconds / 60) 分钟")
                 .font(.system(size: 10))
                 .foregroundStyle(brown.opacity(0.55))
 
@@ -230,7 +248,7 @@ struct ContentView: View {
                     state.acknowledgeReminder()
                 }
             } label: {
-                Text("我起来了")
+                Text(t("我起来了", "I moved"))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(brown)
                     .frame(maxWidth: .infinity)
@@ -244,7 +262,7 @@ struct ContentView: View {
                     state.triggerReminder()
                 }
             } label: {
-                Text("再等等")
+                Text(t("再等等", "Not now"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(brown.opacity(0.75))
                     .frame(maxWidth: .infinity)
@@ -415,7 +433,7 @@ struct ContentView: View {
                 Button {
                     state.acknowledgeReminder()
                 } label: {
-                    Text("我起来了")
+                    Text(t("我起来了", "I moved"))
                         .font(.system(size: 12, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
