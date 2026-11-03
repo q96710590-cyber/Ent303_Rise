@@ -42,6 +42,12 @@ struct IntroView: View {
     @State private var finished = false
     /// 平台下方那一排按钮是否展开
     @State private var menuExpanded = !CommandLine.arguments.contains("--demo-menu-collapsed")
+    /// 商店/背包面板是否打开
+    @State private var panelOpen = CommandLine.arguments.contains("--demo-panel")
+    /// 当前 Tab：0 FOOD / 1 PLANT / 2 BEDS / 3 ACCS
+    @State private var panelTab = CommandLine.arguments
+        .first(where: { $0.hasPrefix("--demo-panel-tab=") })
+        .flatMap { Int($0.dropFirst("--demo-panel-tab=".count)) } ?? 0
 
     private let ticker = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
 
@@ -126,6 +132,13 @@ struct IntroView: View {
                         .offset(x: c.catX - c.shiftDistance, y: c.catY)
                 }
 
+                // 商店 / 背包面板（在平台上方）
+                if panelOpen {
+                    panelView(c)
+                        .transition(.scale(scale: 0.85, anchor: .bottom)
+                                        .combined(with: .opacity))
+                }
+
                 // 平台下方的一排按钮 + LOGO
                 menuRow(c)
                     .frame(width: c.islandX + c.islandW + c.menuRightOverflow - c.shiftDistance,
@@ -176,9 +189,19 @@ struct IntroView: View {
             if menuExpanded {
                 menuButton("focus", size: c.menuIconSize)
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
-                menuButton("shop", size: c.menuIconSize)
+                menuButton("shop", size: c.menuIconSize) {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
+                        panelTab = 0
+                        panelOpen.toggle()
+                    }
+                }
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
-                menuButton("backpack", size: c.menuIconSize)
+                menuButton("backpack", size: c.menuIconSize) {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
+                        panelTab = 3
+                        panelOpen.toggle()
+                    }
+                }
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
             }
 
@@ -192,10 +215,43 @@ struct IntroView: View {
         }
     }
 
-    private func menuButton(_ name: String, size: Double) -> some View {
-        Button {
-            // 功能待接入
-        } label: {
+    // MARK: - 商店 / 背包面板
+
+    private static let panelNames = ["food", "plant", "beds", "accs"]
+
+    @ViewBuilder
+    private func panelView(_ c: Composition) -> some View {
+        let name = Self.panelNames[min(panelTab, Self.panelNames.count - 1)]
+        if let img = Composition.panelImage(name) {
+            ZStack(alignment: .topLeading) {
+                Image(nsImage: img)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: c.panelW, height: c.panelH)
+
+                // 顶部四个 Tab 的命中区（位置由素材实测）
+                ForEach(0..<4, id: \.self) { i in
+                    Button {
+                        panelTab = i
+                    } label: {
+                        Color.clear
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: c.panelW * Composition.panelTabWidth,
+                           height: c.panelH * 0.10)
+                    .offset(x: c.panelW * (Composition.panelTabStart
+                                           + Composition.panelTabWidth * Double(i)),
+                            y: c.panelH * 0.245)
+                }
+            }
+            .offset(x: c.panelX, y: c.panelY)
+        }
+    }
+
+    private func menuButton(_ name: String,
+                            size: Double,
+                            action: @escaping () -> Void = {}) -> some View {
+        Button(action: action) {
             Group {
                 if let img = Composition.menuImage(name) {
                     Image(nsImage: img)
@@ -340,6 +396,23 @@ struct Composition {
         (1 - progress) * (W + islandW)
     }
 
+    // MARK: - 商店 / 背包面板
+
+    /// 平台左移后的最终左边
+    var islandXFinal: Double { islandX - shiftDistance }
+
+    var panelW: Double { islandW * 1.03 }
+    var panelH: Double { panelW * (1800.0 / 2880.0) }
+    var panelX: Double { islandXFinal + (islandW - panelW) / 2 }
+    var panelY: Double {
+        let catTop = catBottomY - catH
+        return max(4, catTop - 8 - panelH)
+    }
+
+    /// Tab 命中区（相对面板宽度的归一化值，由素材实测）
+    static let panelTabStart = 0.0635
+    static let panelTabWidth = 0.0747
+
     // MARK: - 平台下方菜单
 
     var menuIconSize: Double { islandW * 0.160 }
@@ -366,6 +439,16 @@ struct Composition {
         guard let url = Bundle.main.url(forResource: "cat", withExtension: "png", subdirectory: "intro") else { return nil }
         cachedCat = NSImage(contentsOf: url)
         return cachedCat
+    }
+
+    private static var panelCache: [String: NSImage] = [:]
+
+    static func panelImage(_ name: String) -> NSImage? {
+        if let cached = panelCache[name] { return cached }
+        guard let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "panel"),
+              let img = NSImage(contentsOf: url) else { return nil }
+        panelCache[name] = img
+        return img
     }
 
     static func menuImage(_ name: String) -> NSImage? {
