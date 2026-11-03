@@ -61,6 +61,10 @@ struct IntroView: View {
     @State private var layout: [String: [Int?]] = [:]
     @State private var coinAnim: CoinState?
     @State private var coinSeq = 0
+    /// 金币余额（测试版默认 20）
+    @State private var coins = 20
+    /// 单件价格（测试期统一 1，后续可按分类配置）
+    private static let itemPrice = 1
 
     /// 当前 Tab：0 FOOD / 1 PLANT / 2 BEDS / 3 ACCS
     @State private var panelTab = CommandLine.arguments
@@ -285,6 +289,7 @@ struct IntroView: View {
 
                 itemGrid(c, tab: name)
                 coinOverlay(c, tab: name)
+                coinCounter(c)
 
                 ForEach(0..<4, id: \.self) { i in
                     tabHitArea(c, index: i)
@@ -379,6 +384,10 @@ struct IntroView: View {
         guard panelMode == .shop, let index = itemIndex(tab: tab, slot: slot) else { return }
         let key = "\(tab)_\(index)"
 
+        // 余额不足则不出手
+        guard coins >= Self.itemPrice else { return }
+        coins -= Self.itemPrice
+
         if Self.oneShotTabs.contains(tab) {
             guard (owned[key] ?? 0) == 0 else { return }
             owned[key] = 1
@@ -398,6 +407,27 @@ struct IntroView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [id] in
             if coinAnim?.id == id { coinAnim = nil }
         }
+    }
+
+    /// 右上角金币余额（素材里是静态的，这里由代码绘制）
+    @ViewBuilder
+    private func coinCounter(_ c: Composition) -> some View {
+        let iconSize = c.panelH * 0.075
+        HStack(spacing: iconSize * 0.25) {
+            if let icon = Composition.coinIcon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: iconSize, height: iconSize)
+            }
+            Text("\(coins)")
+                .font(.system(size: c.panelH * 0.062, weight: .bold, design: .rounded))
+                .foregroundStyle(Color(red: 0.36, green: 0.30, blue: 0.29))
+                .monospacedDigit()
+        }
+        // 右对齐到胶囊条左侧，避免数字盖住进度条
+        .frame(width: c.panelW * 0.605, alignment: .trailing)
+        .offset(y: c.panelH * 0.205)
     }
 
     /// 购买动画：金币从格子中心升起并淡出（GIF 只播一遍，尺寸按设计稿比例）
@@ -671,6 +701,14 @@ struct Composition {
     static let slotRows: [(Double, Double)] = [
         (0.3622, 0.5628), (0.6233, 0.8239)
     ]
+
+    private static var cachedCoinIcon: NSImage?
+    static var coinIcon: NSImage? {
+        if let cachedCoinIcon { return cachedCoinIcon }
+        guard let url = Bundle.main.url(forResource: "coin_icon", withExtension: "png") else { return nil }
+        cachedCoinIcon = NSImage(contentsOf: url)
+        return cachedCoinIcon
+    }
 
     private static var shopCache: [String: NSImage] = [:]
     private static var pageCountCache: [String: Int] = [:]

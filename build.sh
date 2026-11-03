@@ -52,6 +52,9 @@ fi
 if [ -d Resources/cat ]; then
   cp -R Resources/cat "$APP/Contents/Resources/cat"
 fi
+if [ -f Resources/coin_icon.png ]; then
+  cp Resources/coin_icon.png "$APP/Contents/Resources/coin_icon.png"
+fi
 if [ -f Resources/coin.gif ]; then
   cp Resources/coin.gif "$APP/Contents/Resources/coin.gif"
 fi
