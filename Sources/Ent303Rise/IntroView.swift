@@ -321,10 +321,26 @@ struct Composition {
         return canvasX + canvasCatCenter * scale
     }
 
-    var catW: Double { (meta?.catW ?? 171) * scale }
-    var catH: Double { (meta?.catH ?? 168) * scale }
-    var catX: Double { canvasX + Double(meta?.catBox[0] ?? 0) * scale }
-    var catY: Double { canvasY + Double(meta?.catBox[1] ?? 0) * scale }
+    /// 静态猫相对 GIF 尾帧猫的放大系数。
+    /// 实测静态猫比尾帧矮 4%、身体窄 6%，直接替换会看到明显"缩了一下"。
+    private let staticCatScale = 1.025
+
+    var catW: Double { (meta?.catW ?? 171) * scale * staticCatScale }
+    var catH: Double { (meta?.catH ?? 168) * scale * staticCatScale }
+
+    /// 以 GIF 尾帧猫的中心为水平锚点
+    var catX: Double {
+        guard let meta else { return canvasX }
+        let center = canvasX + Double(meta.catBox[0] + meta.catBox[2]) / 2 * scale
+        return center - catW / 2
+    }
+
+    /// 以 GIF 尾帧猫的底边（猫脚）为垂直锚点
+    var catY: Double {
+        guard let meta else { return canvasY }
+        let bottom = canvasY + Double(meta.catBox[3]) * scale
+        return bottom - catH
+    }
 
     /// 平台跟着猫走：猫中心落在平台宽度的 30% 处，并夹在容器内
     var islandX: Double {
