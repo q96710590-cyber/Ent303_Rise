@@ -327,7 +327,7 @@ struct Composition {
     /// 猫脚位于平台高度的 40.6%
     private let seatDepthRatio = 0.406
     /// 平台垂直中心 / 容器高度
-    private let islandCenterRatio = 0.5625
+    private let islandCenterRatio = 0.60
     /// 静态猫相对 GIF 尾帧猫的放大系数（校准替换跳变）
     private let staticCatScale = 1.025
 
@@ -401,12 +401,13 @@ struct Composition {
     /// 平台左移后的最终左边
     var islandXFinal: Double { islandX - shiftDistance }
 
-    var panelW: Double { islandW * 1.03 }
+    /// 面板尽量用满内容宽度（比平台更宽），以获得更大的 Tab 文字
+    var panelW: Double { W - 16 }
     var panelH: Double { panelW * (1800.0 / 2880.0) }
-    var panelX: Double { islandXFinal + (islandW - panelW) / 2 }
+    var panelX: Double { (W - panelW) / 2 }
     var panelY: Double {
         let catTop = catBottomY - catH
-        return max(4, catTop - 8 - panelH)
+        return max(4, min(8, catTop - 8 - panelH))
     }
 
     /// Tab 命中区（相对面板宽度的归一化值，由素材实测）

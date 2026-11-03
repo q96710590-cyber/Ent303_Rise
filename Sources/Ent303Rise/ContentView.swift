@@ -31,13 +31,14 @@ struct ContentView: View {
                 detectionArea
                 timerBlock
                 reminderArea
+                Spacer(minLength: 0)
                 settingsBlock
             } else {
                 page2
             }
         }
         .padding(16)
-        .frame(width: 320, height: 548, alignment: .top)
+        .frame(width: 400, height: 640, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(.ultraThinMaterial)
