@@ -262,7 +262,7 @@ struct IntroView: View {
                 let row = i / 4
                 let (x0, x1) = Composition.slotCols[col]
                 let (y0, y1) = Composition.slotRows[row]
-                let inset = 0.06
+                let inset = 0.035
                 Image(nsImage: img)
                     .resizable()
                     .interpolation(.high)
@@ -280,19 +280,22 @@ struct IntroView: View {
     private func pageArrows(_ c: Composition) -> some View {
         let page = shopPages[min(panelTab, 3)]
         let pageCount = Composition.pageCount(tab: Self.panelNames[min(panelTab, 3)])
-        let size = c.panelW * 0.085
+        let size = c.panelW * 0.0815
+
+        // 圆心位置由设计稿实测：x 0.923 / 0.077，y 0.545
+        let centerY = c.panelH * 0.545 - size / 2
 
         if page > 0 {
             arrowButton(c, size: size, forward: false) {
                 shopPages[min(panelTab, 3)] = max(0, page - 1)
             }
-            .offset(x: -size * 0.45, y: c.panelH * 0.44)
+            .offset(x: c.panelW * 0.077 - size / 2, y: centerY)
         }
         if page < pageCount - 1 {
             arrowButton(c, size: size, forward: true) {
                 shopPages[min(panelTab, 3)] = min(pageCount - 1, page + 1)
             }
-            .offset(x: c.panelW - size * 0.55, y: c.panelH * 0.44)
+            .offset(x: c.panelW * 0.923 - size / 2, y: centerY)
         }
     }
 
