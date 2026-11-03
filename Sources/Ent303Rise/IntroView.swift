@@ -128,7 +128,8 @@ struct IntroView: View {
 
                 // 平台下方的一排按钮 + LOGO
                 menuRow(c)
-                    .frame(width: c.islandX + c.islandW - c.shiftDistance, alignment: .trailing)
+                    .frame(width: c.islandX + c.islandW + c.menuRightOverflow - c.shiftDistance,
+                           alignment: .trailing)
                     .offset(y: c.islandY + c.islandH + c.menuGapBelow)
                     .opacity(menuVisible ? 1 : 0)
                     .animation(.easeOut(duration: 0.35), value: menuVisible)
@@ -332,12 +333,14 @@ struct Composition {
     }
 
     // 平台下方菜单尺寸：按参考图测量，均为相对平台宽度的比例
-    /// 按钮直径 / 平台宽 = 0.141
-    var menuIconSize: Double { islandW * 0.141 }
-    /// LOGO 直径 / 平台宽 = 0.197（约为按钮的 1.40 倍）
-    var menuLogoSize: Double { islandW * 0.197 }
-    /// 按钮间距 = 0.28 × 按钮直径
-    var menuSpacing: Double { menuIconSize * 0.28 }
+    /// 按钮直径 / 平台宽（比参考图再放大约 13%）
+    var menuIconSize: Double { islandW * 0.160 }
+    /// LOGO 直径 / 平台宽，约为按钮的 1.36 倍
+    var menuLogoSize: Double { islandW * 0.218 }
+    /// 按钮间距 = 0.32 × 按钮直径
+    var menuSpacing: Double { menuIconSize * 0.32 }
+    /// 整排右端超出平台右边缘的量，允许 Logo 略微出界
+    var menuRightOverflow: Double { islandW * 0.08 }
     /// 按钮行与平台底边的间隙 = 0.03 × 平台宽
     var menuGapBelow: Double { islandW * 0.03 }
 
