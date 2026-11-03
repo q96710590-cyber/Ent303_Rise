@@ -183,6 +183,13 @@ struct IntroView: View {
         .onDisappear {
             state.introPlaying = false
         }
+        .onAppear {
+            if CommandLine.arguments.contains("--demo-backpack") {
+                owned = ["food_0": 3, "food_5": 2, "plant_3": 1, "accs_2": 1]
+                panelMode = .backpack
+                panelOpen = true
+            }
+        }
         .onChange(of: finished) { done in
             guard done, CommandLine.arguments.contains("--demo-buy") else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
@@ -347,6 +354,18 @@ struct IntroView: View {
                     .interpolation(.high)
                     .scaledToFit()
                     .frame(width: r.width, height: r.height)
+                    .overlay(alignment: .bottomTrailing) {
+                        // 背包里只显示一个，数量用右下角角标表示
+                        if panelMode == .backpack, let n = owned["\(tab)_\(index)"], n > 1 {
+                            Text("×\(n)")
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(Color.black.opacity(0.6)))
+                                .offset(x: 3, y: 3)
+                        }
+                    }
                     .contentShape(Rectangle())
                     .onTapGesture { buy(tab: tab, slot: slot) }
                     .offset(x: r.x, y: r.y)
