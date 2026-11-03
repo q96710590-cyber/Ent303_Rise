@@ -40,6 +40,8 @@ struct IntroView: View {
     @State private var frameIndex = 0
     @State private var frameImage: NSImage?
     @State private var finished = false
+    /// 平台下方那一排按钮是否展开
+    @State private var menuExpanded = !CommandLine.arguments.contains("--demo-menu-collapsed")
 
     private let ticker = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
 
@@ -123,6 +125,13 @@ struct IntroView: View {
                         .frame(width: c.catW, height: c.catH)
                         .offset(x: c.catX - c.shiftDistance, y: c.catY)
                 }
+
+                // 平台下方的一排按钮 + LOGO
+                menuRow(c)
+                    .frame(width: c.islandX + c.islandW - c.shiftDistance, alignment: .trailing)
+                    .offset(y: c.islandY + c.islandH + 14)
+                    .opacity(menuVisible ? 1 : 0)
+                    .animation(.easeOut(duration: 0.35), value: menuVisible)
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
@@ -138,6 +147,66 @@ struct IntroView: View {
         .onDisappear {
             state.introPlaying = false
         }
+    }
+
+    /// 左移完成后菜单才出现
+    private var menuVisible: Bool { finished || shiftProgress > 0.98 }
+
+    @ViewBuilder
+    private func menuRow(_ c: Composition) -> some View {
+        HStack(spacing: 8) {
+            // 展开 / 收起键（播放图标，收起时水平镜像朝左）
+            Button {
+                withAnimation(.spring(response: 0.36, dampingFraction: 0.78)) {
+                    menuExpanded.toggle()
+                }
+            } label: {
+                if let img = Composition.menuImage("play") {
+                    Image(nsImage: img)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: 34, height: 34)
+                        .scaleEffect(x: menuExpanded ? 1 : -1, y: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .help(menuExpanded ? "收起" : "展开")
+
+            if menuExpanded {
+                menuButton("focus")
+                    .transition(.scale(scale: 0.3).combined(with: .opacity))
+                menuButton("shop")
+                    .transition(.scale(scale: 0.3).combined(with: .opacity))
+                menuButton("backpack")
+                    .transition(.scale(scale: 0.3).combined(with: .opacity))
+            }
+
+            // LOGO 始终在行尾
+            if let logo = Composition.menuImage("logo") {
+                Image(nsImage: logo)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 40, height: 40)
+            }
+        }
+    }
+
+    private func menuButton(_ name: String) -> some View {
+        Button {
+            // 功能待接入
+        } label: {
+            Group {
+                if let img = Composition.menuImage(name) {
+                    Image(nsImage: img)
+                        .resizable()
+                        .interpolation(.high)
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(width: 32, height: 32)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - 播放
@@ -197,6 +266,19 @@ struct Composition {
 
     private static var cachedIsland: NSImage?
     private static var cachedCat: NSImage?
+
+    private static var menuCache: [String: NSImage] = [:]
+
+    /// 菜单图标（play / focus / shop / backpack / logo）
+    static func menuImage(_ name: String) -> NSImage? {
+        if let cached = menuCache[name] { return cached }
+        // logo 复用根目录的 logo.png
+        let sub: String? = (name == "logo") ? nil : "menu"
+        guard let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: sub),
+              let img = NSImage(contentsOf: url) else { return nil }
+        menuCache[name] = img
+        return img
+    }
 
     static var islandImage: NSImage? {
         if let cachedIsland { return cachedIsland }

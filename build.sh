@@ -55,6 +55,10 @@ fi
 if [ -f Resources/pet.gif ]; then
   cp Resources/pet.gif "$APP/Contents/Resources/pet.gif"
 fi
+if [ -d Resources/menu ]; then
+  rm -rf "$APP/Contents/Resources/menu"
+  cp -R Resources/menu "$APP/Contents/Resources/menu"
+fi
 if [ -d Resources/intro ]; then
   rm -rf "$APP/Contents/Resources/intro"
   cp -R Resources/intro "$APP/Contents/Resources/intro"
