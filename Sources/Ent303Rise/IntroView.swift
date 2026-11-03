@@ -256,7 +256,7 @@ struct Composition {
     }
 
     /// 平台宽度 / 容器宽度
-    private let islandWidthRatio = 0.62
+    private let islandWidthRatio = 0.78
     /// 猫宽 / 平台宽（设计稿测量）
     private let catToIsland = 0.34
     /// 猫中心位于平台宽度的 30%（设计稿测量）
