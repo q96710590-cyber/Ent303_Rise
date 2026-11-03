@@ -229,23 +229,40 @@ struct IntroView: View {
                     .interpolation(.high)
                     .frame(width: c.panelW, height: c.panelH)
 
-                // 顶部四个 Tab 的命中区（位置由素材实测）
+                // 顶部四个 Tab：高亮 + 命中区（位置由素材实测）
                 ForEach(0..<4, id: \.self) { i in
-                    Button {
-                        panelTab = i
-                    } label: {
-                        Color.clear
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: c.panelW * Composition.panelTabWidth,
-                           height: c.panelH * 0.10)
-                    .offset(x: c.panelW * (Composition.panelTabStart
-                                           + Composition.panelTabWidth * Double(i)),
-                            y: c.panelH * 0.245)
+                    tabHitArea(c, index: i)
                 }
             }
             .offset(x: c.panelX, y: c.panelY)
         }
+    }
+
+    /// 单个 Tab：激活时叠一层黄色高亮，同时提供可点击区域
+    @ViewBuilder
+    private func tabHitArea(_ c: Composition, index i: Int) -> some View {
+        let w = c.panelW * Composition.panelTabWidth
+        let h = c.panelH * 0.10
+        let x = c.panelW * (Composition.panelTabStart
+                            + Composition.panelTabWidth * Double(i))
+        let y = c.panelH * 0.245
+        let active = (i == panelTab)
+
+        ZStack {
+            if active {
+                // 素材里激活 Tab 与内容区同色，缩放后几乎看不出区别，
+                // 这里叠一层面板黄，让"当前选中项"一眼可辨
+                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                    .fill(Color(red: 1.0, green: 0.808, blue: 0.388).opacity(0.55))
+                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                    .strokeBorder(Color(red: 1.0, green: 0.72, blue: 0.25).opacity(0.95),
+                                  lineWidth: 1)
+            }
+        }
+        .frame(width: w, height: h)
+        .contentShape(Rectangle())
+        .onTapGesture { panelTab = i }
+        .offset(x: x, y: y)
     }
 
     private func menuButton(_ name: String,
