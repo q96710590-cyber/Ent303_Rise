@@ -246,23 +246,11 @@ struct IntroView: View {
         let x = c.panelW * (Composition.panelTabStart
                             + Composition.panelTabWidth * Double(i))
         let y = c.panelH * 0.245
-        let active = (i == panelTab)
-
-        ZStack {
-            if active {
-                // 素材里激活 Tab 与内容区同色，缩放后几乎看不出区别，
-                // 这里叠一层面板黄，让"当前选中项"一眼可辨
-                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                    .fill(Color(red: 1.0, green: 0.808, blue: 0.388).opacity(0.55))
-                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                    .strokeBorder(Color(red: 1.0, green: 0.72, blue: 0.25).opacity(0.95),
-                                  lineWidth: 1)
-            }
-        }
-        .frame(width: w, height: h)
-        .contentShape(Rectangle())
-        .onTapGesture { panelTab = i }
-        .offset(x: x, y: y)
+        Color.clear
+            .frame(width: w, height: h)
+            .contentShape(Rectangle())
+            .onTapGesture { panelTab = i }
+            .offset(x: x, y: y)
     }
 
     private func menuButton(_ name: String,

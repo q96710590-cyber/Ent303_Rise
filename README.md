@@ -134,7 +134,6 @@ LOGO 右侧与平台右边缘齐平。
 
 - 面板素材：`Resources/panel/{food,plant,beds,accs}.png`，每张对应一个激活 Tab
 - 顶部 **FOOD / PLANT / BEDS / ACCS** 四个 Tab 可点击切换
-- 当前选中项叠加**黄色高亮 + 描边**（素材里激活态只差一条底边框，缩小后不可辨）
 - 购物车打开时默认 FOOD，书包打开时默认 ACCS；再点一次收起
 - 弹出/收起用 spring + 缩放淡入
 
