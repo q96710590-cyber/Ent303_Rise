@@ -52,6 +52,10 @@ final class AppState: ObservableObject {
     @Published var pomodoroRemaining = 0
     /// 手动模式下是否接受提醒
     @Published var acceptReminderInManual = true
+    /// 界面语言（false = 中文，true = English）
+    @Published var isEnglish = CommandLine.arguments.contains("--demo-english")
+    func t(_ zh: String, _ en: String) -> String { isEnglish ? en : zh }
+
     /// 是否接受提醒（总开关）
     @Published var acceptReminder = true
     /// 是否使用自定义接收时段

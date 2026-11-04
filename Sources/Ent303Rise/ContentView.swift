@@ -10,9 +10,7 @@ struct ContentView: View {
     @State private var secondsInput: String = "0"
 
     /// 界面语言（false = 中文，true = English）
-    @State private var isEnglish = CommandLine.arguments.contains("--demo-english")
 
-    private func t(_ zh: String, _ en: String) -> String { isEnglish ? en : zh }
 
     enum DurationFocus: Hashable { case hours, minutes, seconds }
     @FocusState private var focus: DurationFocus?
@@ -146,7 +144,7 @@ struct ContentView: View {
             Image(systemName: "square.dashed")
                 .font(.system(size: 28))
                 .foregroundStyle(.secondary)
-            Text("页面 2")
+            Text(state.t("页面 2", "Page 2"))
                 .font(.system(size: 13, weight: .bold))
             Text("等待接入内容\n宠物形象 / 视觉素材 / 新功能")
                 .font(.system(size: 11))
@@ -188,7 +186,7 @@ struct ContentView: View {
                             state.triggerReminder()
                         }
                     } label: {
-                        Text(t("预览提醒", "Preview"))
+                        Text(state.t("预览提醒", "Preview"))
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 10)
@@ -197,8 +195,8 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button { isEnglish.toggle() } label: {
-                        Text(isEnglish ? "EN" : "中")
+                    Button { state.isEnglish.toggle() } label: {
+                        Text(state.isEnglish ? "EN" : "中")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.secondary)
                             .frame(width: 24, height: 20)
@@ -217,12 +215,12 @@ struct ContentView: View {
         let yellow = Color(red: 1.0, green: 0.81, blue: 0.39)
 
         return VStack(alignment: .leading, spacing: 4) {
-            Text(isEnglish ? "\(state.workSeconds / 60) min seated"
+            Text(state.isEnglish ? "\(state.workSeconds / 60) min seated"
                            : "已连续 \(state.workSeconds / 60) 分钟")
                 .font(.system(size: 9))
                 .foregroundStyle(brown.opacity(0.55))
 
-            Text(s.title(en: isEnglish))
+            Text(s.title(en: state.isEnglish))
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(brown)
                 .lineLimit(1)
@@ -233,7 +231,7 @@ struct ContentView: View {
                         state.acknowledgeReminder()
                     }
                 } label: {
-                    Text(t("我起来了", "I moved"))
+                    Text(state.t("我起来了", "I moved"))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(brown)
                         .frame(maxWidth: .infinity)
@@ -247,7 +245,7 @@ struct ContentView: View {
                         state.triggerReminder()
                     }
                 } label: {
-                    Text(t("稍后", "Not now"))
+                    Text(state.t("稍后", "Not now"))
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(brown.opacity(0.75))
                         .frame(maxWidth: .infinity)
@@ -420,7 +418,7 @@ struct ContentView: View {
                 Button {
                     state.acknowledgeReminder()
                 } label: {
-                    Text(t("我起来了", "I moved"))
+                    Text(state.t("我起来了", "I moved"))
                         .font(.system(size: 12, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
@@ -486,7 +484,7 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Text("提醒间隔")
+                    Text(state.t("提醒间隔", "Interval"))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     Spacer(minLength: 8)

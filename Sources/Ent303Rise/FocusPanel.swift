@@ -10,7 +10,7 @@ struct FocusPanel: View {
     private let cream = Color(red: 1.0, green: 0.97, blue: 0.85)
     private let yellow = Color(red: 1.0, green: 0.81, blue: 0.39)
 
-    private let tabs = ["Focus", "番茄钟"]
+    private var tabs: [String] { ["Focus", state.t("番茄钟", "Pomodoro")] }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -52,16 +52,16 @@ struct FocusPanel: View {
     private var focusTab: some View {
         VStack(alignment: .leading, spacing: 6) {
             Toggle(isOn: $state.acceptReminder) {
-                Text("接受提醒").font(.system(size: 10, weight: .semibold)).foregroundStyle(brown)
+                Text(state.t("接受提醒", "Reminders")).font(.system(size: 10, weight: .semibold)).foregroundStyle(brown)
             }
             .toggleStyle(.switch).controlSize(.mini)
 
             Divider().opacity(0.35)
 
             HStack {
-                Text("提醒间隔").font(.system(size: 10)).foregroundStyle(brown.opacity(0.6))
+                Text(state.t("提醒间隔", "Interval")).font(.system(size: 10)).foregroundStyle(brown.opacity(0.6))
                 Spacer()
-                Text("\(state.intervalSeconds / 60) 分钟")
+                Text("\(state.intervalSeconds / 60) " + state.t("分钟", "min"))
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(brown)
                 Stepper("", value: Binding(
@@ -69,46 +69,46 @@ struct FocusPanel: View {
                     set: { state.intervalSeconds = $0 * 60 }
                 ), in: 1...120).labelsHidden()
             }
-            Text("推荐 \(AppState.bestIntervalMinutes) 分钟（研究建议的最短提醒间隔）")
+            Text(state.isEnglish ? "Recommended \(AppState.bestIntervalMinutes) min (research-backed minimum)" : "推荐 \(AppState.bestIntervalMinutes) 分钟（研究建议的最短提醒间隔）")
                 .font(.system(size: 9)).foregroundStyle(brown.opacity(0.5))
 
             Divider().opacity(0.35)
 
             // 自动 / 手动
             HStack(spacing: 6) {
-                modeChip("自动检测", active: state.detectionMode == .auto) { state.detectionMode = .auto }
-                modeChip("手动", active: state.detectionMode == .manual) { state.detectionMode = .manual }
+                modeChip(state.t("自动检测", "Auto"), active: state.detectionMode == .auto) { state.detectionMode = .auto }
+                modeChip(state.t("手动", "Manual"), active: state.detectionMode == .manual) { state.detectionMode = .manual }
             }
             if state.detectionMode == .auto {
                 Toggle(isOn: $state.adaptive) {
-                    Text("自适应").font(.system(size: 10)).foregroundStyle(brown)
+                    Text(state.t("自适应", "Adaptive")).font(.system(size: 10)).foregroundStyle(brown)
                 }
                 .toggleStyle(.switch).controlSize(.mini)
-                Text("初期间隔更长，用得越久越接近推荐值")
+                Text(state.t("初期间隔更长，用得越久越接近推荐值", "Longer at first, then it settles toward the recommended value"))
                     .font(.system(size: 9))
                     .foregroundStyle(brown.opacity(0.5))
                     .fixedSize(horizontal: false, vertical: true)
             }
             if state.detectionMode == .manual {
                 HStack(spacing: 6) {
-                    stateChip("在电脑前", active: state.mode == .working) { state.setWorking() }
-                    stateChip("去活动", active: state.mode == .away) { state.setAway() }
+                    stateChip(state.t("在电脑前", "Working"), active: state.mode == .working) { state.setWorking() }
+                    stateChip(state.t("去活动", "Away"), active: state.mode == .away) { state.setAway() }
                 }
             }
 
             Divider().opacity(0.35)
 
             Toggle(isOn: $state.useCustomWindow) {
-                Text("仅限时段").font(.system(size: 10)).foregroundStyle(brown)
+                Text(state.t("仅限时段", "Hours only")).font(.system(size: 10)).foregroundStyle(brown)
             }
             .toggleStyle(.switch).controlSize(.mini)
 
             if state.useCustomWindow {
                 HStack(spacing: 6) {
-                    Text("从").font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
+                    Text(state.t("从", "From")).font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
                     Stepper(String(format: "%02d:00", state.windowStartHour), value: $state.windowStartHour, in: 0...23)
                         .font(.system(size: 9)).controlSize(.mini)
-                    Text("到").font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
+                    Text(state.t("到", "to")).font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
                     Stepper(String(format: "%02d:00", state.windowEndHour), value: $state.windowEndHour, in: 1...24)
                         .font(.system(size: 9)).controlSize(.mini)
                 }
@@ -155,15 +155,15 @@ struct FocusPanel: View {
     private var pomodoroTab: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("时长").font(.system(size: 10)).foregroundStyle(brown.opacity(0.6))
+                Text(state.t("时长", "Length")).font(.system(size: 10)).foregroundStyle(brown.opacity(0.6))
                 Spacer()
-                Text("\(state.pomodoroMinutes) 分钟")
+                Text("\(state.pomodoroMinutes) " + state.t("分钟", "min"))
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(brown)
                 Stepper("", value: $state.pomodoroMinutes, in: 5...90).labelsHidden()
             }
 
-            Text("剩余 " + String(format: "%02d:%02d",
+            Text(state.t("剩余 ", "Left ") + String(format: "%02d:%02d",
                                    state.pomodoroRemaining / 60,
                                    state.pomodoroRemaining % 60))
                 .font(.system(size: 16, weight: .bold, design: .monospaced))
@@ -191,7 +191,7 @@ struct FocusPanel: View {
                     state.pomodoroRunning = false
                     state.pomodoroRemaining = state.pomodoroMinutes * 60
                 } label: {
-                    Text("重置")
+                    Text(state.t("重置", "Reset"))
                         .font(.system(size: 11, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
@@ -217,7 +217,7 @@ struct FocusPanel: View {
                 manualButton("去活动", active: state.mode == .away) { state.setAway() }
             }
             Toggle(isOn: $state.acceptReminderInManual) {
-                Text("接受提醒")
+                Text(state.t("接受提醒", "Reminders"))
                     .font(.system(size: 10)).foregroundStyle(brown)
             }
             .toggleStyle(.switch)
