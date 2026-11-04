@@ -48,6 +48,8 @@ final class AppState: ObservableObject {
     @Published var pomodoroMinutes: Int = 25
     /// 番茄钟是否在计时
     @Published var pomodoroRunning = false
+    /// 番茄钟剩余秒数
+    @Published var pomodoroRemaining = 0
     /// 手动模式下是否接受提醒
     @Published var acceptReminderInManual = true
 
@@ -90,6 +92,15 @@ final class AppState: ObservableObject {
     }
 
     private func tick() {
+        // 番茄钟倒计时（独立于检测模式）
+        if pomodoroRunning {
+            if pomodoroRemaining <= 0 { pomodoroRemaining = pomodoroMinutes * 60 }
+            pomodoroRemaining -= 1
+            if pomodoroRemaining <= 0 {
+                pomodoroRunning = false
+                triggerReminder()
+            }
+        }
         switch detectionMode {
         case .auto:   tickAuto()
         case .manual: tickManual()
@@ -145,7 +156,16 @@ final class AppState: ObservableObject {
         reminder = nil
     }
 
+    /// 自适应：每次提醒后把间隔向推荐值收敛 10%（只减不增）
+    private func adaptIntervalIfNeeded() {
+        guard adaptive else { return }
+        let best = Self.bestIntervalMinutes * 60
+        guard intervalSeconds > best else { return }
+        intervalSeconds = max(best, Int(Double(intervalSeconds) * 0.9))
+    }
+
     func triggerReminder() {
+        adaptIntervalIfNeeded()
         reminder = Suggestions.random(excluding: reminder?.title)
         // 有提醒时必须让用户看到
         if collapsed { expand() }
