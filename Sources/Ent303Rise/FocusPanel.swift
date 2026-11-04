@@ -43,6 +43,13 @@ struct FocusPanel: View {
     // MARK: Focus（提醒间隔 → 模式 → 提醒设置）
     private var focusTab: some View {
         VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: $state.acceptReminder) {
+                Text("接受提醒").font(.system(size: 10, weight: .semibold)).foregroundStyle(brown)
+            }
+            .toggleStyle(.switch).controlSize(.mini)
+
+            Divider().opacity(0.35)
+
             HStack {
                 Text("提醒间隔").font(.system(size: 10)).foregroundStyle(brown.opacity(0.6))
                 Spacer()
@@ -57,11 +64,6 @@ struct FocusPanel: View {
             Text("推荐 \(AppState.bestIntervalMinutes) 分钟（研究建议的最短提醒间隔）")
                 .font(.system(size: 9)).foregroundStyle(brown.opacity(0.5))
 
-            Toggle(isOn: $state.adaptive) {
-                Text("自适应").font(.system(size: 10)).foregroundStyle(brown)
-            }
-            .toggleStyle(.switch).controlSize(.mini)
-
             Divider().opacity(0.35)
 
             // 自动 / 手动
@@ -69,19 +71,20 @@ struct FocusPanel: View {
                 modeChip("自动检测", active: state.detectionMode == .auto) { state.detectionMode = .auto }
                 modeChip("手动", active: state.detectionMode == .manual) { state.detectionMode = .manual }
             }
+            if state.detectionMode == .auto {
+                Toggle(isOn: $state.adaptive) {
+                    Text("自适应").font(.system(size: 10)).foregroundStyle(brown)
+                }
+                .toggleStyle(.switch).controlSize(.mini)
+            }
             if state.detectionMode == .manual {
                 HStack(spacing: 6) {
-                    modeChip("在电脑前", active: state.mode == .working) { state.setWorking() }
-                    modeChip("去活动", active: state.mode == .away) { state.setAway() }
+                    stateChip("在电脑前", active: state.mode == .working) { state.setWorking() }
+                    stateChip("去活动", active: state.mode == .away) { state.setAway() }
                 }
             }
 
             Divider().opacity(0.35)
-
-            Toggle(isOn: $state.acceptReminder) {
-                Text("接受提醒").font(.system(size: 10)).foregroundStyle(brown)
-            }
-            .toggleStyle(.switch).controlSize(.mini)
 
             Toggle(isOn: $state.useCustomWindow) {
                 Text("仅限时段").font(.system(size: 10)).foregroundStyle(brown)
@@ -91,10 +94,10 @@ struct FocusPanel: View {
             if state.useCustomWindow {
                 HStack(spacing: 6) {
                     Text("从").font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
-                    Stepper("\(state.windowStartHour) 时", value: $state.windowStartHour, in: 0...23)
+                    Stepper(String(format: "%02d:00", state.windowStartHour), value: $state.windowStartHour, in: 0...23)
                         .font(.system(size: 9)).controlSize(.mini)
                     Text("到").font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
-                    Stepper("\(state.windowEndHour) 时", value: $state.windowEndHour, in: 1...24)
+                    Stepper(String(format: "%02d:00", state.windowEndHour), value: $state.windowEndHour, in: 1...24)
                         .font(.system(size: 9)).controlSize(.mini)
                 }
             }
@@ -111,6 +114,29 @@ struct FocusPanel: View {
                 .foregroundStyle(brown.opacity(active ? 1 : 0.6))
         }
         .buttonStyle(.plain)
+        .contentShape(Capsule())
+    }
+
+    /// 手动模式的状态按钮：圆角矩形 + 绿色，与上面的胶囊按钮区分
+    private func stateChip(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        let green = Color(red: 0.81, green: 0.85, blue: 0.45)
+        return Button(action: action) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(active ? green : Color.white.opacity(0.55))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(brown.opacity(0.35), lineWidth: 1)
+                )
+                .foregroundStyle(brown.opacity(active ? 1 : 0.65))
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 6))
     }
 
     // MARK: 番茄钟
@@ -157,10 +183,11 @@ struct FocusPanel: View {
                         .font(.system(size: 11, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
-                        .background(Capsule().strokeBorder(brown.opacity(0.35), lineWidth: 1))
+                        .background(Capsule().fill(Color.white.opacity(0.6)))
                         .foregroundStyle(brown.opacity(0.75))
                 }
                 .buttonStyle(.plain)
+                .contentShape(Capsule())
             }
         }
         .onAppear {
