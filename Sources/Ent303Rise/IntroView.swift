@@ -74,6 +74,8 @@ struct IntroView: View {
     }
     /// 已摆到平台上的物品
     @State private var placed: [PlacedItem] = []
+    /// 正在从背包拖出的物品预览
+    @State private var dragPreview: (tab: String, index: Int, x: Double, y: Double)? = nil
     /// 是否出现过提醒（用于"提醒消失后自动展开菜单"）
     @State private var hadReminder = false
     /// 金币余额（测试版默认 20）
@@ -174,8 +176,11 @@ struct IntroView: View {
                         .offset(x: c.catX - c.shiftDistance, y: c.catY)
                 }
 
-                // 摆在平台上的物品：食物在猫之上
+                // 摆在平台上的物品：food/accs 在猫之上
                 placedLayer(c, aboveCat: true)
+
+                // 背包拖出时的跟手预览
+                dragPreviewLayer(c)
 
                 // Focus 面板（平台上方）
                 if focusOpen {
@@ -444,7 +449,12 @@ struct IntroView: View {
                     }
                     .gesture(
                         DragGesture(minimumDistance: 8, coordinateSpace: .named("comp"))
+                            .onChanged { v in
+                                guard panelMode == .backpack else { return }
+                                dragPreview = (tab, index, Double(v.location.x), Double(v.location.y))
+                            }
                             .onEnded { v in
+                                dragPreview = nil
                                 guard panelMode == .backpack else { return }
                                 drop(tab: tab, index: index, at: v.location, c: c)
                             }
@@ -457,6 +467,9 @@ struct IntroView: View {
     // MARK: 拖放
 
     /// 物品在平台上的显示边长（food 原尺寸，其余放大）
+    /// 该分类绘制在猫之上还是之下
+    private func isAboveCat(_ tab: String) -> Bool { tab == "food" || tab == "accs" }
+
     private func placedSize(_ c: Composition, tab: String) -> Double {
         let base = c.panelW * 0.167 * 0.93
         return tab == "food" ? base : base * 1.3
@@ -470,6 +483,23 @@ struct IntroView: View {
         let r = islandRect(c)
         return p.x >= r.x && p.x <= r.x + r.w
             && p.y >= r.y - 8 && p.y <= r.y + r.h + 8
+    }
+
+    /// 拖拽中的半透明预览
+    @ViewBuilder
+    private func dragPreviewLayer(_ c: Composition) -> some View {
+        if let p = dragPreview,
+           let img = Composition.shopImage(tab: p.tab, index: p.index) {
+            let side = placedSize(c, tab: p.tab)
+            Image(nsImage: img)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: side, height: side)
+                .opacity(0.85)
+                .allowsHitTesting(false)
+                .offset(x: p.x - side / 2, y: p.y - side / 2)
+        }
     }
 
     /// 背包里点击物品 → 放到平台上（暂时替代拖拽）
@@ -505,7 +535,7 @@ struct IntroView: View {
     @ViewBuilder
     private func placedLayer(_ c: Composition, aboveCat: Bool) -> some View {
         ForEach(placed, id: \.id) { item in
-            if (item.tab == "food") == aboveCat,
+            if isAboveCat(item.tab) == aboveCat,
                let img = Composition.shopImage(tab: item.tab, index: item.index) {
                 let side = placedSize(c, tab: item.tab)
                 Image(nsImage: img)
