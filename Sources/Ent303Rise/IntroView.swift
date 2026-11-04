@@ -64,6 +64,16 @@ struct IntroView: View {
     /// Focus 面板是否打开
     @State private var focusOpen = CommandLine.arguments.contains("--demo-focus")
     @State private var focusTab = 0
+
+    struct PlacedItem: Identifiable {
+        let id = UUID()
+        let tab: String
+        let index: Int
+        var x: Double
+        var y: Double
+    }
+    /// 已摆到平台上的物品
+    @State private var placed: [PlacedItem] = []
     /// 是否出现过提醒（用于"提醒消失后自动展开菜单"）
     @State private var hadReminder = false
     /// 金币余额（测试版默认 20）
@@ -128,6 +138,8 @@ struct IntroView: View {
                                 meta: meta)
 
             ZStack(alignment: .topLeading) {
+                Color.clear.frame(width: 1, height: 1)
+
                 // 平台在猫后面
                 if let island = Composition.islandImage {
                     Image(nsImage: island)
@@ -139,6 +151,9 @@ struct IntroView: View {
                                    - c.shiftDistance * shiftProgress,
                                 y: c.islandY)
                 }
+
+                // 摆在平台上的物品：非食物在猫之下
+                placedLayer(c, aboveCat: false)
 
                 // 播放阶段：逐帧
                 if !finished, let img = frameImage {
@@ -158,6 +173,9 @@ struct IntroView: View {
                         .frame(width: c.catW, height: c.catH)
                         .offset(x: c.catX - c.shiftDistance, y: c.catY)
                 }
+
+                // 摆在平台上的物品：食物在猫之上
+                placedLayer(c, aboveCat: true)
 
                 // Focus 面板（平台上方）
                 if focusOpen {
@@ -417,7 +435,81 @@ struct IntroView: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { buy(tab: tab, slot: slot) }
+                    .gesture(
+                        DragGesture(minimumDistance: 8, coordinateSpace: .named("comp"))
+                            .onEnded { v in
+                                guard panelMode == .backpack else { return }
+                                drop(tab: tab, index: index, at: v.location, c: c)
+                            }
+                    )
                     .offset(x: r.x, y: r.y)
+            }
+        }
+    }
+
+    // MARK: 拖放
+
+    /// 物品在平台上的显示边长（food 原尺寸，其余放大）
+    private func placedSize(_ c: Composition, tab: String) -> Double {
+        let base = c.panelW * 0.167 * 0.93
+        return tab == "food" ? base : base * 1.3
+    }
+
+    private func islandRect(_ c: Composition) -> (x: Double, y: Double, w: Double, h: Double) {
+        (c.islandX - c.shiftDistance, c.islandY, c.islandW, c.islandH)
+    }
+
+    private func insidePlatform(_ p: CGPoint, _ c: Composition) -> Bool {
+        let r = islandRect(c)
+        return p.x >= r.x && p.x <= r.x + r.w
+            && p.y >= r.y - 8 && p.y <= r.y + r.h + 8
+    }
+
+    /// 每个分类的同时上限
+    private func limit(for tab: String) -> Int { tab == "plant" ? 2 : 1 }
+
+    private func drop(tab: String, index: Int, at p: CGPoint, c: Composition) {
+        guard insidePlatform(p, c) else { return }
+        guard placed.filter({ $0.tab == tab }).count < limit(for: tab) else { return }
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+            placed.append(PlacedItem(tab: tab, index: index, x: p.x, y: p.y))
+        }
+    }
+
+    @ViewBuilder
+    private func placedLayer(_ c: Composition, aboveCat: Bool) -> some View {
+        ForEach(placed) { item in
+            if (item.tab == "food") == aboveCat,
+               let img = Composition.shopImage(tab: item.tab, index: item.index) {
+                let side = placedSize(c, tab: item.tab)
+                Image(nsImage: img)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: side, height: side)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 2, coordinateSpace: .named("comp"))
+                            .onChanged { v in
+                                if let i = placed.firstIndex(where: { $0.id == item.id }) {
+                                    placed[i].x = v.location.x
+                                    placed[i].y = v.location.y
+                                }
+                            }
+                            .onEnded { v in
+                                guard let i = placed.firstIndex(where: { $0.id == item.id }) else { return }
+                                if insidePlatform(v.location, c) {
+                                    placed[i].x = v.location.x
+                                    placed[i].y = v.location.y
+                                } else {
+                                    // 拖出平台 → 收回背包
+                                    withAnimation(.easeOut(duration: 0.2)) {
+                                        placed.remove(at: i)
+                                    }
+                                }
+                            }
+                    )
+                    .offset(x: item.x - side / 2, y: item.y - side / 2)
             }
         }
     }
