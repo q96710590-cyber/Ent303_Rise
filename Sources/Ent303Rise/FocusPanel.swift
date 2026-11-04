@@ -4,6 +4,7 @@ import SwiftUI
 struct FocusPanel: View {
     @EnvironmentObject var state: AppState
     @Binding var tab: Int
+    var onClose: () -> Void = {}
 
     private let brown = Color(red: 0.36, green: 0.31, blue: 0.30)
     private let cream = Color(red: 1.0, green: 0.97, blue: 0.85)
@@ -26,6 +27,13 @@ struct FocusPanel: View {
                     .buttonStyle(.plain)
                 }
                 Spacer(minLength: 0)
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(brown.opacity(0.65))
+                }
+                .buttonStyle(.plain)
+                .contentShape(Circle())
             }
 
             Group {

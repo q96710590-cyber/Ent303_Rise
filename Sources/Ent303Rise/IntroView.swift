@@ -161,7 +161,7 @@ struct IntroView: View {
 
                 // Focus 面板（平台上方）
                 if focusOpen {
-                    FocusPanel(tab: $focusTab)
+                    FocusPanel(tab: $focusTab, onClose: { closeAll() })
                         .frame(width: c.panelW * 0.92)
                         .offset(x: c.panelX + c.panelW * 0.04, y: c.panelY - 4)
                         .transition(.scale(scale: 0.9, anchor: .bottom).combined(with: .opacity))
@@ -251,34 +251,15 @@ struct IntroView: View {
 
             if menuExpanded {
                 menuButton("focus", size: c.menuIconSize) {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
-                        focusOpen.toggle()
-                    }
+                    if focusOpen { closeAll() } else { openOnly("focus") }
                 }
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
                 menuButton("shop", size: c.menuIconSize) {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
-                        if panelOpen && panelMode == .shop {
-                            panelOpen = false
-                        } else {
-                            panelMode = .shop
-                            compactLayouts()
-                            panelTab = 0
-                            panelOpen = true
-                        }
-                    }
+                    if panelOpen && panelMode == .shop { closeAll() } else { openOnly("shop") }
                 }
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
                 menuButton("backpack", size: c.menuIconSize) {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
-                        if panelOpen && panelMode == .backpack {
-                            panelOpen = false
-                        } else {
-                            panelMode = .backpack
-                            panelTab = 0
-                            panelOpen = true
-                        }
-                    }
+                    if panelOpen && panelMode == .backpack { closeAll() } else { openOnly("backpack") }
                 }
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
             }
@@ -296,6 +277,30 @@ struct IntroView: View {
     // MARK: - 商店 / 背包面板
 
     private static let panelNames = ["food", "plant", "beds", "accs"]
+
+    /// 关闭所有浮层
+    private func closeAll() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+            panelOpen = false
+            focusOpen = false
+        }
+    }
+
+    /// 打开某一个浮层前先关掉其他
+    private func openOnly(_ target: String) {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
+            if target == "focus" {
+                panelOpen = false
+                focusOpen = true
+            } else {
+                focusOpen = false
+                panelMode = (target == "backpack") ? .backpack : .shop
+                if target == "shop" { compactLayouts() }
+                panelTab = 0
+                panelOpen = true
+            }
+        }
+    }
     /// 一次性购买的类目：买完留空，下次打开面板时重排补位
     private static let oneShotTabs: Set<String> = ["beds", "accs"]
 
@@ -324,6 +329,16 @@ struct IntroView: View {
                     tabHitArea(c, index: i)
                 }
                 pageArrows(c)
+
+                // 关闭键
+                Button { closeAll() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: c.panelH * 0.075))
+                        .foregroundStyle(Color(red: 0.36, green: 0.30, blue: 0.29).opacity(0.7))
+                }
+                .buttonStyle(.plain)
+                .contentShape(Circle())
+                .offset(x: c.panelW * 0.945, y: c.panelH * 0.028)
             }
             .offset(x: c.panelX, y: c.panelY)
         }
@@ -438,25 +453,13 @@ struct IntroView: View {
         }
     }
 
-    /// 右上角积分条：长度随金币数量变化（20 为满格）
+    /// 用面板底色块盖住素材里那条静态进度条
     @ViewBuilder
     private func coinBar(_ c: Composition) -> some View {
-        let x0 = c.panelW * 0.6215
-        let y0 = c.panelH * 0.2139
-        let w  = c.panelW * (0.9028 - 0.6215)
-        let h  = c.panelH * (0.2500 - 0.2139)
-        let ratio = min(1, max(0, Double(coins) / 20.0))
-
-        ZStack(alignment: .leading) {
-            Capsule().fill(Color(red: 1.0, green: 0.97, blue: 0.88))
-            Capsule()
-                .fill(Color(red: 0.36, green: 0.30, blue: 0.29))
-                .frame(width: max(h, w * ratio))
-                .animation(.easeOut(duration: 0.25), value: coins)
-        }
-        .padding(1.6)                     // 内缩，保留素材原有的描边
-        .frame(width: w, height: h)
-        .offset(x: x0, y: y0)
+        RoundedRectangle(cornerRadius: c.panelH * 0.02, style: .continuous)
+            .fill(Color(red: 1.0, green: 0.808, blue: 0.388))
+            .frame(width: c.panelW * 0.315, height: c.panelH * 0.092)
+            .offset(x: c.panelW * 0.606, y: c.panelH * 0.193)
     }
 
     /// 右上角金币余额（素材里是静态的，这里由代码绘制）
@@ -476,7 +479,7 @@ struct IntroView: View {
                 .monospacedDigit()
         }
         // 右对齐到胶囊条左侧，避免数字盖住进度条
-        .frame(width: c.panelW * 0.605, alignment: .trailing)
+        .frame(width: c.panelW * 0.74, alignment: .trailing)
         .offset(y: c.panelH * 0.205)
     }
 
