@@ -76,6 +76,10 @@ struct FocusPanel: View {
                     Text("自适应").font(.system(size: 10)).foregroundStyle(brown)
                 }
                 .toggleStyle(.switch).controlSize(.mini)
+                Text("初期间隔更长，用得越久越接近推荐值")
+                    .font(.system(size: 9))
+                    .foregroundStyle(brown.opacity(0.5))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if state.detectionMode == .manual {
                 HStack(spacing: 6) {
