@@ -168,6 +168,7 @@ struct IntroView: View {
                     .frame(width: c.islandX + c.islandW + c.menuRightOverflow - c.shiftDistance,
                            alignment: .trailing)
                     .offset(y: c.islandY + c.islandH + c.menuGapBelow)
+                    .opacity(menuVisible ? 1 : 0)
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
@@ -214,7 +215,8 @@ struct IntroView: View {
     }
 
     /// 左移完成后菜单才出现
-    private var menuVisible: Bool { finished || shiftProgress > 0.98 }
+    /// 平台左移结束后才显示菜单（纯时间判断，避免依赖状态标志）
+    private var menuVisible: Bool { elapsed >= condenseTime + 1.2 }
 
     @ViewBuilder
     private func menuRow(_ c: Composition) -> some View {
