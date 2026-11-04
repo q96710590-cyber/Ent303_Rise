@@ -496,7 +496,7 @@ struct IntroView: View {
 
     @ViewBuilder
     private func placedLayer(_ c: Composition, aboveCat: Bool) -> some View {
-        ForEach(placed) { item in
+        ForEach(placed, id: \.id) { item in
             if (item.tab == "food") == aboveCat,
                let img = Composition.shopImage(tab: item.tab, index: item.index) {
                 let side = placedSize(c, tab: item.tab)
@@ -506,11 +506,6 @@ struct IntroView: View {
                     .scaledToFit()
                     .frame(width: side, height: side)
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            placed.removeAll { $0.id == item.id }
-                        }
-                    }
                     .gesture(
                         DragGesture(minimumDistance: 2, coordinateSpace: .named("comp"))
                             .onChanged { v in
