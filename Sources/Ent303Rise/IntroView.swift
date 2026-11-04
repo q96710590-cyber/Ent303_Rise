@@ -201,6 +201,7 @@ struct IntroView: View {
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
+        .coordinateSpace(name: "comp")
         .onReceive(ticker) { _ in tick() }
         .onAppear {
             start = Date()
