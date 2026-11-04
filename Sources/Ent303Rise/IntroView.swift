@@ -458,8 +458,8 @@ struct IntroView: View {
     private func coinBar(_ c: Composition) -> some View {
         RoundedRectangle(cornerRadius: c.panelH * 0.02, style: .continuous)
             .fill(Color(red: 1.0, green: 0.808, blue: 0.388))
-            .frame(width: c.panelW * 0.315, height: c.panelH * 0.092)
-            .offset(x: c.panelW * 0.606, y: c.panelH * 0.193)
+            .frame(width: c.panelW * 0.330, height: c.panelH * 0.080)
+            .offset(x: c.panelW * 0.592, y: c.panelH * 0.206)
     }
 
     /// 右上角金币余额（素材里是静态的，这里由代码绘制）
