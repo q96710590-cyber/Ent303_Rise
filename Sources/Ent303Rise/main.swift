@@ -165,7 +165,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         p.backgroundColor = .clear
         p.hasShadow = true
         p.level = .floating
-        p.isMovableByWindowBackground = true
+        // 关闭背景拖动，否则会抢走面板内的拖放手势
+        p.isMovableByWindowBackground = false
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
@@ -238,7 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         iconView?.isHidden = !collapsed
 
         animate(p, to: frame)
-        p.isMovableByWindowBackground = !collapsed
+        p.isMovableByWindowBackground = false
         p.invalidateShadow()
     }
 
