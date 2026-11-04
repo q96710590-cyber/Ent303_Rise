@@ -517,11 +517,22 @@ struct IntroView: View {
         owned[key] = (n == 1) ? nil : n - 1
     }
 
+    /// 落点是否被接受（配饰更宽松：可压猫、可超出平台边缘）
+    private func accepts(_ p: CGPoint, _ c: Composition, tab: String) -> Bool {
+        guard tab == "accs" else { return insidePlatform(p, c) }
+        let r = islandRect(c)
+        let padX = r.w * 0.30
+        let padTop = r.h * 1.0
+        let padBottom = r.h * 0.45
+        return p.x >= r.x - padX && p.x <= r.x + r.w + padX
+            && p.y >= r.y - padTop && p.y <= r.y + r.h + padBottom
+    }
+
     /// 每个分类的同时上限
     private func limit(for tab: String) -> Int { tab == "plant" ? 2 : 1 }
 
     private func drop(tab: String, index: Int, at p: CGPoint, c: Composition) {
-        guard insidePlatform(p, c) else { return }
+        guard accepts(p, c, tab: tab) else { return }
         guard placed.filter({ $0.tab == tab }).count < limit(for: tab) else { return }
         let key = "\(tab)_\(index)"
         guard let n = owned[key], n > 0 else { return }
@@ -554,7 +565,7 @@ struct IntroView: View {
                             }
                             .onEnded { v in
                                 guard let i = placed.firstIndex(where: { $0.id == item.id }) else { return }
-                                if insidePlatform(v.location, c) {
+                                if item.tab == "accs" || insidePlatform(v.location, c) {
                                     placed[i].x = v.location.x
                                     placed[i].y = v.location.y
                                 } else {
