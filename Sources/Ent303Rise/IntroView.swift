@@ -458,7 +458,7 @@ struct IntroView: View {
     private func coinBar(_ c: Composition) -> some View {
         RoundedRectangle(cornerRadius: c.panelH * 0.02, style: .continuous)
             .fill(Color(red: 1.0, green: 0.808, blue: 0.388))
-            .frame(width: c.panelW * 0.330, height: c.panelH * 0.080)
+            .frame(width: c.panelW * 0.372, height: c.panelH * 0.080)
             .offset(x: c.panelW * 0.592, y: c.panelH * 0.206)
     }
 
