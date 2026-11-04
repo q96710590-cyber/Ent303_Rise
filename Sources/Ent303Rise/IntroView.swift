@@ -61,6 +61,9 @@ struct IntroView: View {
     @State private var layout: [String: [Int?]] = [:]
     @State private var coinAnim: CoinState?
     @State private var coinSeq = 0
+    /// Focus 面板是否打开
+    @State private var focusOpen = CommandLine.arguments.contains("--demo-focus")
+    @State private var focusTab = 0
     /// 是否出现过提醒（用于"提醒消失后自动展开菜单"）
     @State private var hadReminder = false
     /// 金币余额（测试版默认 20）
@@ -156,6 +159,14 @@ struct IntroView: View {
                         .offset(x: c.catX - c.shiftDistance, y: c.catY)
                 }
 
+                // Focus 面板（平台上方）
+                if focusOpen {
+                    FocusPanel(tab: $focusTab)
+                        .frame(width: c.panelW * 0.92)
+                        .offset(x: c.panelX + c.panelW * 0.04, y: c.panelY - 4)
+                        .transition(.scale(scale: 0.9, anchor: .bottom).combined(with: .opacity))
+                }
+
                 // 商店 / 背包面板（在平台上方）
                 if panelOpen {
                     panelView(c)
@@ -239,7 +250,11 @@ struct IntroView: View {
             .help(menuExpanded ? "收起" : "展开")
 
             if menuExpanded {
-                menuButton("focus", size: c.menuIconSize)
+                menuButton("focus", size: c.menuIconSize) {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
+                        focusOpen.toggle()
+                    }
+                }
                     .transition(.scale(scale: 0.3).combined(with: .opacity))
                 menuButton("shop", size: c.menuIconSize) {
                     withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {

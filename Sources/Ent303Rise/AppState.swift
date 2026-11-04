@@ -42,6 +42,17 @@ final class AppState: ObservableObject {
     @Published var inspectorOpen = false
     /// 开屏动画是否正在播放（播放期间禁止缩略，否则动画会被打断）
     @Published var introPlaying = false
+    /// 自动检测是否启用自适应（初期间隔更长，逐步逼近最佳间隔）
+    @Published var adaptive = true
+    /// 番茄钟时长（分钟）
+    @Published var pomodoroMinutes: Int = 25
+    /// 番茄钟是否在计时
+    @Published var pomodoroRunning = false
+    /// 手动模式下是否接受提醒
+    @Published var acceptReminderInManual = true
+
+    /// research 得出的最佳提醒间隔（分钟）
+    static let bestIntervalMinutes = 30
 
     /// 空闲不超过这个值 → 认为仍在电脑前工作
     private let activeThreshold: Double = 120
