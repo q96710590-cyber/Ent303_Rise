@@ -61,6 +61,8 @@ struct IntroView: View {
     @State private var layout: [String: [Int?]] = [:]
     @State private var coinAnim: CoinState?
     @State private var coinSeq = 0
+    /// 是否出现过提醒（用于"提醒消失后自动展开菜单"）
+    @State private var hadReminder = false
     /// 金币余额（测试版默认 20）
     @State private var coins = 20
     /// 单件价格（测试期统一 1，后续可按分类配置）
@@ -166,8 +168,6 @@ struct IntroView: View {
                     .frame(width: c.islandX + c.islandW + c.menuRightOverflow - c.shiftDistance,
                            alignment: .trailing)
                     .offset(y: c.islandY + c.islandH + c.menuGapBelow)
-                    .opacity(menuVisible ? 1 : 0)
-                    .animation(.easeOut(duration: 0.35), value: menuVisible)
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
@@ -192,6 +192,17 @@ struct IntroView: View {
                 owned = ["food_0": 3, "food_5": 2, "plant_3": 1, "accs_2": 1]
                 panelMode = .backpack
                 panelOpen = true
+            }
+        }
+        .onChange(of: state.reminder != nil) { has in
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.78)) {
+                if has {
+                    hadReminder = true
+                    menuExpanded = false          // 提醒出现 → 收起菜单
+                } else if hadReminder {
+                    menuExpanded = true           // 点了「我起来了」→ 展开菜单
+                    hadReminder = false
+                }
             }
         }
         .onChange(of: finished) { done in

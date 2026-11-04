@@ -43,7 +43,7 @@ struct ContentView: View {
             }
         }
         .padding(16)
-        .frame(width: 440, height: 548, alignment: .top)
+        .frame(width: 320, height: 548, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -164,116 +164,103 @@ struct ContentView: View {
         )
     }
 
-    /// 第 2 页：左侧宠物，右侧留给到点提醒弹窗
+    /// 第 2 页：宠物 + 平台上方的提醒弹窗
     private var page2: some View {
-        HStack(spacing: 12) {
-            IntroView()
-                .frame(width: 248)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.black.opacity(0.04))
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(alignment: .bottom) {
-                    // 测试用：预览弹窗 + 中英切换
-                    HStack(spacing: 6) {
-                        Button {
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
-                                state.triggerReminder()
-                            }
-                        } label: {
-                            Text(t("预览提醒", "Preview"))
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(Capsule().fill(Color.white.opacity(0.55)))
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            isEnglish.toggle()
-                        } label: {
-                            Text(isEnglish ? "EN" : "中")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 24, height: 20)
-                                .background(Capsule().fill(Color.white.opacity(0.55)))
-                        }
-                        .buttonStyle(.plain)
-                        .help(isEnglish ? "切换到中文" : "Switch to English")
-                    }
-                    .padding(.bottom, 10)
+        IntroView()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.black.opacity(0.04))
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(alignment: .top) {
+                if let r = state.reminder {
+                    reminderCard(r)
+                        .frame(width: 252, height: 96)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
+            }
+            .overlay(alignment: .bottom) {
+                HStack(spacing: 6) {
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                            state.triggerReminder()
+                        }
+                    } label: {
+                        Text(t("预览提醒", "Preview"))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.white.opacity(0.55)))
+                    }
+                    .buttonStyle(.plain)
 
-            // 提醒位：有提醒时显示卡片，否则留空
-            reminderSlot
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        }
+                    Button { isEnglish.toggle() } label: {
+                        Text(isEnglish ? "EN" : "中")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 20)
+                            .background(Capsule().fill(Color.white.opacity(0.55)))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 10)
+            }
     }
 
-    @ViewBuilder
-    private var reminderSlot: some View {
-        if let r = state.reminder {
-            reminderCard(r)
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-        } else {
-            Color.clear
-        }
-    }
-
-    /// 到点提醒卡片（配色取自现有美术：奶油底 + 深褐描边 + 面板黄）
+    /// 到点提醒卡片（宽扁，位于平台上方）
     private func reminderCard(_ s: Suggestion) -> some View {
         let brown = Color(red: 0.36, green: 0.31, blue: 0.30)
-        let cream = Color(red: 1.0, green: 0.98, blue: 0.88)
+        let cream = Color(red: 1.0, green: 0.97, blue: 0.85)
         let yellow = Color(red: 1.0, green: 0.81, blue: 0.39)
 
-        return VStack(alignment: .leading, spacing: 10) {
-            Text(isEnglish ? "Seated for \(state.workSeconds / 60) min" : "已连续 \(state.workSeconds / 60) 分钟")
-                .font(.system(size: 10))
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(isEnglish ? "\(state.workSeconds / 60) min seated"
+                           : "已连续 \(state.workSeconds / 60) 分钟")
+                .font(.system(size: 9))
                 .foregroundStyle(brown.opacity(0.55))
 
             Text(s.title(en: isEnglish))
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(brown)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(1)
 
-            Text(s.detail(en: isEnglish))
-                .font(.system(size: 10))
-                .foregroundStyle(brown.opacity(0.7))
-                .fixedSize(horizontal: false, vertical: true)
-
-            Button {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
-                    state.acknowledgeReminder()
+            HStack(spacing: 6) {
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                        state.acknowledgeReminder()
+                    }
+                } label: {
+                    Text(t("我起来了", "I moved"))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(brown)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(yellow))
                 }
-            } label: {
-                Text(t("我起来了", "I moved"))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(brown)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(yellow))
-            }
-            .buttonStyle(.plain)
+                .buttonStyle(.plain)
 
-            Button {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
-                    state.triggerReminder()
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                        state.triggerReminder()
+                    }
+                } label: {
+                    Text(t("稍后", "Not now"))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(brown.opacity(0.75))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                        .background(Capsule().strokeBorder(brown.opacity(0.35), lineWidth: 1))
                 }
-            } label: {
-                Text(t("再等等", "Not now"))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(brown.opacity(0.75))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 5)
-                    .background(Capsule().strokeBorder(brown.opacity(0.35), lineWidth: 1))
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(cream)
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(cream)
         )
     }
 
