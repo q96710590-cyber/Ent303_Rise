@@ -479,9 +479,12 @@ struct IntroView: View {
         let n = placed.count
         let x = r.x + r.w * (0.28 + 0.22 * Double(n % 3))
         let y = r.y + r.h * (tab == "food" ? 0.42 : 0.62)
+        let key = "\(tab)_\(index)"
+        guard let n = owned[key], n > 0 else { return }
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             placed.append(PlacedItem(tab: tab, index: index, x: x, y: y))
         }
+        owned[key] = (n == 1) ? nil : n - 1
     }
 
     /// 每个分类的同时上限
@@ -490,9 +493,13 @@ struct IntroView: View {
     private func drop(tab: String, index: Int, at p: CGPoint, c: Composition) {
         guard insidePlatform(p, c) else { return }
         guard placed.filter({ $0.tab == tab }).count < limit(for: tab) else { return }
+        let key = "\(tab)_\(index)"
+        guard let n = owned[key], n > 0 else { return }
         withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
             placed.append(PlacedItem(tab: tab, index: index, x: p.x, y: p.y))
         }
+        // 从背包取出，数量减一
+        owned[key] = (n == 1) ? nil : n - 1
     }
 
     @ViewBuilder
@@ -522,9 +529,12 @@ struct IntroView: View {
                                     placed[i].y = v.location.y
                                 } else {
                                     // 拖出平台 → 收回背包
+                                    let it = placed[i]
                                     withAnimation(.easeOut(duration: 0.2)) {
                                         placed.remove(at: i)
                                     }
+                                    // 退回背包
+                                    owned["\(it.tab)_\(it.index)", default: 0] += 1
                                 }
                             }
                     )
