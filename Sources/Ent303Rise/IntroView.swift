@@ -434,7 +434,13 @@ struct IntroView: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { buy(tab: tab, slot: slot) }
+                    .onTapGesture {
+                        if panelMode == .shop {
+                            buy(tab: tab, slot: slot)
+                        } else {
+                            placeFromBackpack(tab: tab, index: index, c: c)
+                        }
+                    }
                     .gesture(
                         DragGesture(minimumDistance: 8, coordinateSpace: .named("comp"))
                             .onEnded { v in
@@ -465,6 +471,18 @@ struct IntroView: View {
             && p.y >= r.y - 8 && p.y <= r.y + r.h + 8
     }
 
+    /// 背包里点击物品 → 放到平台上（暂时替代拖拽）
+    private func placeFromBackpack(tab: String, index: Int, c: Composition) {
+        guard placed.filter({ $0.tab == tab }).count < limit(for: tab) else { return }
+        let r = islandRect(c)
+        let n = placed.count
+        let x = r.x + r.w * (0.28 + 0.22 * Double(n % 3))
+        let y = r.y + r.h * (tab == "food" ? 0.42 : 0.62)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            placed.append(PlacedItem(tab: tab, index: index, x: x, y: y))
+        }
+    }
+
     /// 每个分类的同时上限
     private func limit(for tab: String) -> Int { tab == "plant" ? 2 : 1 }
 
@@ -488,6 +506,11 @@ struct IntroView: View {
                     .scaledToFit()
                     .frame(width: side, height: side)
                     .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            placed.removeAll { $0.id == item.id }
+                        }
+                    }
                     .gesture(
                         DragGesture(minimumDistance: 2, coordinateSpace: .named("comp"))
                             .onChanged { v in
