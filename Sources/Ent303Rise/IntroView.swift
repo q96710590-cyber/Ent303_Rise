@@ -300,6 +300,7 @@ struct IntroView: View {
                     .interpolation(.high)
                     .frame(width: c.panelW, height: c.panelH)
 
+                coinBar(c)
                 itemGrid(c, tab: name)
                 coinOverlay(c, tab: name)
                 coinCounter(c)
@@ -420,6 +421,27 @@ struct IntroView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [id] in
             if coinAnim?.id == id { coinAnim = nil }
         }
+    }
+
+    /// 右上角积分条：长度随金币数量变化（20 为满格）
+    @ViewBuilder
+    private func coinBar(_ c: Composition) -> some View {
+        let x0 = c.panelW * 0.6215
+        let y0 = c.panelH * 0.2139
+        let w  = c.panelW * (0.9028 - 0.6215)
+        let h  = c.panelH * (0.2500 - 0.2139)
+        let ratio = min(1, max(0, Double(coins) / 20.0))
+
+        ZStack(alignment: .leading) {
+            Capsule().fill(Color(red: 1.0, green: 0.97, blue: 0.88))
+            Capsule()
+                .fill(Color(red: 0.36, green: 0.30, blue: 0.29))
+                .frame(width: max(h, w * ratio))
+                .animation(.easeOut(duration: 0.25), value: coins)
+        }
+        .padding(1.6)                     // 内缩，保留素材原有的描边
+        .frame(width: w, height: h)
+        .offset(x: x0, y: y0)
     }
 
     /// 右上角金币余额（素材里是静态的，这里由代码绘制）
