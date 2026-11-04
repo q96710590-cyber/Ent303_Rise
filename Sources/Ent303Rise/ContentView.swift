@@ -114,8 +114,8 @@ struct ContentView: View {
 
     private var pageTabs: some View {
         HStack(spacing: 6) {
-            tabButton("概览", index: 0)
-            tabButton("页面 2", index: 1)
+            tabButton(state.t("概览", "Overview"), index: 0)
+            tabButton(state.t("页面 2", "Page 2"), index: 1)
             Spacer(minLength: 0)
         }
     }
@@ -274,7 +274,7 @@ struct ContentView: View {
             Circle()
                 .fill(state.mode == .working ? Color.green : Color.gray.opacity(0.5))
                 .frame(width: 8, height: 8)
-            Text(state.mode == .working ? "计时中" : "已暂停")
+            Text(state.mode == .working ? state.t("计时中", "Counting") : state.t("已暂停", "Paused"))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Button {
