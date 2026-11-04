@@ -52,6 +52,21 @@ final class AppState: ObservableObject {
     @Published var pomodoroRemaining = 0
     /// 手动模式下是否接受提醒
     @Published var acceptReminderInManual = true
+    /// 是否接受提醒（总开关）
+    @Published var acceptReminder = true
+    /// 是否使用自定义接收时段
+    @Published var useCustomWindow = false
+    /// 自定义时段（小时，闭区间）
+    @Published var windowStartHour = 9
+    @Published var windowEndHour = 18
+
+    /// 当前是否处于允许提醒的时段
+    var withinAcceptedWindow: Bool {
+        guard acceptReminder else { return false }
+        guard useCustomWindow else { return true }
+        let h = Calendar.current.component(.hour, from: Date())
+        return h >= windowStartHour && h < windowEndHour
+    }
 
     /// research 得出的最佳提醒间隔（分钟）
     static let bestIntervalMinutes = 30
@@ -165,6 +180,7 @@ final class AppState: ObservableObject {
     }
 
     func triggerReminder() {
+        guard withinAcceptedWindow else { return }
         adaptIntervalIfNeeded()
         reminder = Suggestions.random(excluding: reminder?.title)
         // 有提醒时必须让用户看到

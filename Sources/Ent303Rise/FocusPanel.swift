@@ -9,7 +9,7 @@ struct FocusPanel: View {
     private let cream = Color(red: 1.0, green: 0.97, blue: 0.85)
     private let yellow = Color(red: 1.0, green: 0.81, blue: 0.39)
 
-    private let tabs = ["自动检测", "番茄钟", "手动"]
+    private let tabs = ["Focus", "番茄钟"]
 
     var body: some View {
         VStack(spacing: 8) {
@@ -30,9 +30,8 @@ struct FocusPanel: View {
 
             Group {
                 switch tab {
-                case 0: autoTab
-                case 1: pomodoroTab
-                default: manualTab
+                case 0: focusTab
+                default: pomodoroTab
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -41,8 +40,8 @@ struct FocusPanel: View {
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(cream))
     }
 
-    // MARK: 自动检测
-    private var autoTab: some View {
+    // MARK: Focus（提醒间隔 → 模式 → 提醒设置）
+    private var focusTab: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("提醒间隔").font(.system(size: 10)).foregroundStyle(brown.opacity(0.6))
@@ -57,15 +56,61 @@ struct FocusPanel: View {
             }
             Text("推荐 \(AppState.bestIntervalMinutes) 分钟（研究建议的最短提醒间隔）")
                 .font(.system(size: 9)).foregroundStyle(brown.opacity(0.5))
+
             Toggle(isOn: $state.adaptive) {
-                Text("自适应")
-                    .font(.system(size: 10)).foregroundStyle(brown)
+                Text("自适应").font(.system(size: 10)).foregroundStyle(brown)
             }
-            .toggleStyle(.switch)
-            .controlSize(.mini)
-            Text("开启后初期提醒间隔更长，逐步逼近推荐值")
-                .font(.system(size: 9)).foregroundStyle(brown.opacity(0.5))
+            .toggleStyle(.switch).controlSize(.mini)
+
+            Divider().opacity(0.35)
+
+            // 自动 / 手动
+            HStack(spacing: 6) {
+                modeChip("自动检测", active: state.detectionMode == .auto) { state.detectionMode = .auto }
+                modeChip("手动", active: state.detectionMode == .manual) { state.detectionMode = .manual }
+            }
+            if state.detectionMode == .manual {
+                HStack(spacing: 6) {
+                    modeChip("在电脑前", active: state.mode == .working) { state.setWorking() }
+                    modeChip("去活动", active: state.mode == .away) { state.setAway() }
+                }
+            }
+
+            Divider().opacity(0.35)
+
+            Toggle(isOn: $state.acceptReminder) {
+                Text("接受提醒").font(.system(size: 10)).foregroundStyle(brown)
+            }
+            .toggleStyle(.switch).controlSize(.mini)
+
+            Toggle(isOn: $state.useCustomWindow) {
+                Text("仅限时段").font(.system(size: 10)).foregroundStyle(brown)
+            }
+            .toggleStyle(.switch).controlSize(.mini)
+
+            if state.useCustomWindow {
+                HStack(spacing: 6) {
+                    Text("从").font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
+                    Stepper("\(state.windowStartHour) 时", value: $state.windowStartHour, in: 0...23)
+                        .font(.system(size: 9)).controlSize(.mini)
+                    Text("到").font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
+                    Stepper("\(state.windowEndHour) 时", value: $state.windowEndHour, in: 1...24)
+                        .font(.system(size: 9)).controlSize(.mini)
+                }
+            }
         }
+    }
+
+    private func modeChip(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(active ? yellow : Color.white.opacity(0.5)))
+                .foregroundStyle(brown.opacity(active ? 1 : 0.6))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: 番茄钟
@@ -79,17 +124,49 @@ struct FocusPanel: View {
                     .foregroundStyle(brown)
                 Stepper("", value: $state.pomodoroMinutes, in: 5...90).labelsHidden()
             }
-            Button {
-                state.pomodoroRunning.toggle()
-            } label: {
-                Text(state.pomodoroRunning ? "停止" : "开始")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(brown)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(state.pomodoroRunning ? Color.white.opacity(0.7) : yellow))
+
+            Text("剩余 " + String(format: "%02d:%02d",
+                                   state.pomodoroRemaining / 60,
+                                   state.pomodoroRemaining % 60))
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundStyle(brown)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack(spacing: 6) {
+                Button {
+                    if state.pomodoroRemaining <= 0 {
+                        state.pomodoroRemaining = state.pomodoroMinutes * 60
+                    }
+                    state.pomodoroRunning.toggle()
+                } label: {
+                    Text(state.pomodoroRunning ? "暂停" : "开始")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(state.pomodoroRunning
+                                                   ? Color.white.opacity(0.7) : yellow))
+                        .foregroundStyle(brown)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    state.pomodoroRunning = false
+                    state.pomodoroRemaining = state.pomodoroMinutes * 60
+                } label: {
+                    Text("重置")
+                        .font(.system(size: 11, weight: .medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Capsule().strokeBorder(brown.opacity(0.35), lineWidth: 1))
+                        .foregroundStyle(brown.opacity(0.75))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+        }
+        .onAppear {
+            if state.pomodoroRemaining <= 0 {
+                state.pomodoroRemaining = state.pomodoroMinutes * 60
+            }
         }
     }
 
