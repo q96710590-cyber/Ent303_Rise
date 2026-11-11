@@ -1,0 +1,239 @@
+import SwiftUI
+
+/// 耳机按钮打开的 Focus 面板：三种提醒模式用 Tab 切换。
+struct FocusPanel: View {
+    @EnvironmentObject var state: AppState
+    @Binding var tab: Int
+    var onClose: () -> Void = {}
+
+    private let brown = Color(red: 0.36, green: 0.31, blue: 0.30)
+    private let cream = Color(red: 1.0, green: 0.97, blue: 0.85)
+    private let yellow = Color(red: 1.0, green: 0.81, blue: 0.39)
+
+    private var tabs: [String] { ["Focus", state.t("番茄钟", "Pomodoro")] }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                ForEach(0..<tabs.count, id: \.self) { i in
+                    Button { tab = i } label: {
+                        Text(tabs[i])
+                            .font(.system(size: 10, weight: .semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(i == tab ? yellow : Color.white.opacity(0.45)))
+                            .foregroundStyle(brown.opacity(i == tab ? 1 : 0.6))
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer(minLength: 0)
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(brown.opacity(0.65))
+                }
+                .buttonStyle(.plain)
+                .contentShape(Circle())
+            }
+
+            Group {
+                switch tab {
+                case 0: focusTab
+                default: pomodoroTab
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(cream))
+    }
+
+    // MARK: Focus（提醒间隔 → 模式 → 提醒设置）
+    private var focusTab: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: $state.acceptReminder) {
+                Text(state.t("接受提醒", "Reminders")).font(.system(size: 10, weight: .semibold)).foregroundStyle(brown)
+            }
+            .toggleStyle(.switch).controlSize(.mini)
+
+            Divider().opacity(0.35)
+
+            HStack {
+                Text(state.t("提醒间隔", "Interval")).font(.system(size: 10)).foregroundStyle(brown.opacity(0.6))
+                Spacer()
+                Text("\(state.intervalSeconds / 60) " + state.t("分钟", "min"))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(brown)
+                Stepper("", value: Binding(
+                    get: { max(1, state.intervalSeconds / 60) },
+                    set: { state.intervalSeconds = $0 * 60 }
+                ), in: 1...120).labelsHidden()
+            }
+            Text(state.isEnglish ? "Recommended \(AppState.bestIntervalMinutes) min (research-backed minimum)" : "推荐 \(AppState.bestIntervalMinutes) 分钟（研究建议的最短提醒间隔）")
+                .font(.system(size: 9)).foregroundStyle(brown.opacity(0.5))
+
+            Divider().opacity(0.35)
+
+            // 自动 / 手动
+            HStack(spacing: 6) {
+                modeChip(state.t("自动检测", "Auto"), active: state.detectionMode == .auto) { state.detectionMode = .auto }
+                modeChip(state.t("手动", "Manual"), active: state.detectionMode == .manual) { state.detectionMode = .manual }
+            }
+            if state.detectionMode == .auto {
+                Toggle(isOn: $state.adaptive) {
+                    Text(state.t("自适应", "Adaptive")).font(.system(size: 10)).foregroundStyle(brown)
+                }
+                .toggleStyle(.switch).controlSize(.mini)
+                Text(state.t("初期间隔更长，用得越久越接近推荐值", "Longer at first, then it settles toward the recommended value"))
+                    .font(.system(size: 9))
+                    .foregroundStyle(brown.opacity(0.5))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if state.detectionMode == .manual {
+                HStack(spacing: 6) {
+                    stateChip(state.t("在电脑前", "Working"), active: state.mode == .working) { state.setWorking() }
+                    stateChip(state.t("去活动", "Away"), active: state.mode == .away) { state.setAway() }
+                }
+            }
+
+            Divider().opacity(0.35)
+
+            Toggle(isOn: $state.useCustomWindow) {
+                Text(state.t("仅限时段", "Hours only")).font(.system(size: 10)).foregroundStyle(brown)
+            }
+            .toggleStyle(.switch).controlSize(.mini)
+
+            if state.useCustomWindow {
+                HStack(spacing: 6) {
+                    Text(state.t("从", "From")).font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
+                    Stepper(String(format: "%02d:00", state.windowStartHour), value: $state.windowStartHour, in: 0...23)
+                        .font(.system(size: 9)).controlSize(.mini)
+                    Text(state.t("到", "to")).font(.system(size: 9)).foregroundStyle(brown.opacity(0.6))
+                    Stepper(String(format: "%02d:00", state.windowEndHour), value: $state.windowEndHour, in: 1...24)
+                        .font(.system(size: 9)).controlSize(.mini)
+                }
+            }
+        }
+    }
+
+    private func modeChip(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(active ? yellow : Color.white.opacity(0.5)))
+                .foregroundStyle(brown.opacity(active ? 1 : 0.6))
+        }
+        .buttonStyle(.plain)
+        .contentShape(Capsule())
+    }
+
+    /// 手动模式的状态按钮：圆角矩形 + 绿色，与上面的胶囊按钮区分
+    private func stateChip(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        let green = Color(red: 0.81, green: 0.85, blue: 0.45)
+        return Button(action: action) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(active ? green : Color.white.opacity(0.55))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(brown.opacity(0.35), lineWidth: 1)
+                )
+                .foregroundStyle(brown.opacity(active ? 1 : 0.65))
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    // MARK: 番茄钟
+    private var pomodoroTab: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(state.t("时长", "Length")).font(.system(size: 10)).foregroundStyle(brown.opacity(0.6))
+                Spacer()
+                Text("\(state.pomodoroMinutes) " + state.t("分钟", "min"))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(brown)
+                Stepper("", value: $state.pomodoroMinutes, in: 5...90).labelsHidden()
+            }
+
+            Text(state.t("剩余 ", "Left ") + String(format: "%02d:%02d",
+                                   state.pomodoroRemaining / 60,
+                                   state.pomodoroRemaining % 60))
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundStyle(brown)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack(spacing: 6) {
+                Button {
+                    if state.pomodoroRemaining <= 0 {
+                        state.pomodoroRemaining = state.pomodoroMinutes * 60
+                    }
+                    state.pomodoroRunning.toggle()
+                } label: {
+                    Text(state.pomodoroRunning ? state.t("暂停", "Pause") : state.t("开始", "Start"))
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(state.pomodoroRunning
+                                                   ? Color.white.opacity(0.7) : yellow))
+                        .foregroundStyle(brown)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    state.pomodoroRunning = false
+                    state.pomodoroRemaining = state.pomodoroMinutes * 60
+                } label: {
+                    Text(state.t("重置", "Reset"))
+                        .font(.system(size: 11, weight: .medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(Color.white.opacity(0.6)))
+                        .foregroundStyle(brown.opacity(0.75))
+                }
+                .buttonStyle(.plain)
+                .contentShape(Capsule())
+            }
+        }
+        .onAppear {
+            if state.pomodoroRemaining <= 0 {
+                state.pomodoroRemaining = state.pomodoroMinutes * 60
+            }
+        }
+    }
+
+    // MARK: 手动
+    private var manualTab: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                manualButton("在电脑前", active: state.mode == .working) { state.setWorking() }
+                manualButton("去活动", active: state.mode == .away) { state.setAway() }
+            }
+            Toggle(isOn: $state.acceptReminderInManual) {
+                Text(state.t("接受提醒", "Reminders"))
+                    .font(.system(size: 10)).foregroundStyle(brown)
+            }
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+        }
+    }
+
+    private func manualButton(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(active ? yellow : Color.white.opacity(0.5)))
+                .foregroundStyle(brown.opacity(active ? 1 : 0.6))
+        }
+        .buttonStyle(.plain)
+    }
+}

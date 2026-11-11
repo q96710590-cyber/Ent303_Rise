@@ -1,0 +1,574 @@
+import SwiftUI
+import AppKit
+
+struct ContentView: View {
+    @EnvironmentObject var state: AppState
+
+    // 提醒间隔的三段输入：时 / 分 / 秒
+    @State private var hoursInput: String = "0"
+    @State private var minutesInput: String = "45"
+    @State private var secondsInput: String = "0"
+
+    /// 界面语言（false = 中文，true = English）
+
+
+    enum DurationFocus: Hashable { case hours, minutes, seconds }
+    @FocusState private var focus: DurationFocus?
+
+    /// 详情页的当前分页（--demo-page2 可让启动时直接停在第 2 页，便于截图验证）
+    @State private var page = CommandLine.arguments.contains("--demo-page2") ? 1 : 0
+
+    // 缩略图标由 AppKit 的 IconView 负责（见 main.swift），
+    // 这里只渲染详情界面，缩略时整个 hosting view 会被隐藏。
+    var body: some View {
+        expandedContent
+    }
+
+    // MARK: - 详情界面
+
+    private var expandedContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            pageTabs
+            if page == 0 {
+                detectionArea
+                timerBlock
+                reminderArea
+                Spacer(minLength: 0)
+                settingsBlock
+            } else {
+                page2
+            }
+        }
+        .padding(16)
+        .frame(width: 320, height: 548, alignment: .top)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                // 点卡片空白处 = 失焦保存
+                .onTapGesture { dismissFocus() }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+        )
+        // 外部改动（测试按钮 / 箭头）→ 回写输入框；正在编辑时不打扰
+        .onChange(of: state.intervalSeconds) { newValue in
+            guard focus == nil else { return }
+            applyToInputs(newValue)
+        }
+        // 聚焦变化：记录编辑态；失焦即提交
+        .onChange(of: focus) { newValue in
+            state.setEditing(newValue != nil)
+            if newValue == nil { commit() }
+        }
+    }
+
+    /// 回车 / 失去焦点时提交：解析三段输入，规范化后写回状态
+    private func commit() {
+        let rawH = max(0, Int(hoursInput) ?? 0)
+        let rawM = max(0, Int(minutesInput) ?? 0)
+        let rawS = max(0, Int(secondsInput) ?? 0)
+        // 不逐段截断，允许 90 分这种写法，交给归一化处理
+        let total = min(rawH * 3600 + rawM * 60 + rawS, 99 * 3600)
+
+        guard total >= 1 else {
+            applyToInputs(state.intervalSeconds)
+            return
+        }
+
+        state.intervalSeconds = total
+
+        let normH = total / 3600
+        let normM = (total % 3600) / 60
+        let normS = total % 60
+        if normH != rawH || normM != rawM || normS != rawS {
+            applyToInputs(total)   // 例如 90 分 → 1 时 30 分
+        }
+    }
+
+    private func applyToInputs(_ seconds: Int) {
+        hoursInput = String(seconds / 3600)
+        minutesInput = String((seconds % 3600) / 60)
+        secondsInput = String(seconds % 60)
+    }
+
+    private func dismissFocus() {
+        focus = nil
+        NSApp.keyWindow?.makeFirstResponder(nil)
+    }
+
+    /// 上下箭头：按分钟增减，保留秒数
+    private var minutesStepperBinding: Binding<Int> {
+        Binding(
+            get: { state.intervalSeconds / 60 },
+            set: { newMinutes in
+                let remainder = state.intervalSeconds % 60
+                state.intervalSeconds = max(60, newMinutes * 60 + remainder)
+            }
+        )
+    }
+
+    // MARK: - 分页
+
+    private var pageTabs: some View {
+        HStack(spacing: 6) {
+            tabButton(state.t("概览", "Overview"), index: 0)
+            tabButton(state.t("页面 2", "Page 2"), index: 1)
+            Spacer(minLength: 0)
+            Button {
+                state.movementOpen = true
+            } label: {
+                Label(state.t("运动赚金币", "Move & earn"), systemImage: "figure.arms.open")
+                    .font(.system(size: 10, weight: .semibold))
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .foregroundStyle(Color(red: 0.36, green: 0.31, blue: 0.30))
+                    .background(Capsule().fill(Color(red: 1, green: 0.81, blue: 0.39)))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func tabButton(_ title: String, index: Int) -> some View {
+        Button {
+            page = index
+        } label: {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule().fill(page == index
+                                   ? Color.accentColor.opacity(0.85)
+                                   : Color.white.opacity(0.10))
+                )
+                .foregroundStyle(page == index ? Color.white : Color.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 第二页暂为占位，等接入宠物形象 / 视觉素材或新功能
+    private var placeholderPage: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "square.dashed")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary)
+            Text(state.t("页面 2", "Page 2"))
+                .font(.system(size: 13, weight: .bold))
+            Text("等待接入内容\n宠物形象 / 视觉素材 / 新功能")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    Color.secondary.opacity(0.30),
+                    style: StrokeStyle(lineWidth: 1, dash: [5, 5])
+                )
+        )
+    }
+
+    /// 第 2 页：宠物 + 平台上方的提醒弹窗
+    private var page2: some View {
+        IntroView()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.black.opacity(0.04))
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(alignment: .top) {
+                if let r = state.reminder {
+                    reminderCard(r)
+                        .frame(width: 252, height: 96)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .overlay(alignment: .bottom) {
+                HStack(spacing: 6) {
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                            state.triggerReminder()
+                        }
+                    } label: {
+                        Text(state.t("预览提醒", "Preview"))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.white.opacity(0.55)))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { state.isEnglish.toggle() } label: {
+                        Text(state.isEnglish ? "EN" : "中")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 20)
+                            .background(Capsule().fill(Color.white.opacity(0.55)))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 10)
+            }
+    }
+
+    /// 到点提醒卡片（宽扁，位于平台上方）
+    private func reminderCard(_ s: Suggestion) -> some View {
+        let brown = Color(red: 0.36, green: 0.31, blue: 0.30)
+        let cream = Color(red: 1.0, green: 0.97, blue: 0.85)
+        let yellow = Color(red: 1.0, green: 0.81, blue: 0.39)
+
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(state.isEnglish ? "\(state.workSeconds / 60) min seated"
+                           : "已连续 \(state.workSeconds / 60) 分钟")
+                .font(.system(size: 9))
+                .foregroundStyle(brown.opacity(0.55))
+
+            Text(s.title(en: state.isEnglish))
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(brown)
+                .lineLimit(1)
+
+            HStack(spacing: 6) {
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                        state.acknowledgeReminder()
+                    }
+                } label: {
+                    Text(state.t("我起来了", "I moved"))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(brown)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(yellow))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                        state.triggerReminder()
+                    }
+                } label: {
+                    Text(state.t("稍后", "Not now"))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(brown.opacity(0.75))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                        .background(Capsule().strokeBorder(brown.opacity(0.35), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(cream)
+        )
+    }
+
+    // MARK: - 顶部
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "pawprint.fill")
+                .font(.system(size: 14, weight: .semibold))
+            Text("Ent303 Rise")
+                .font(.system(size: 14, weight: .bold))
+            Spacer()
+            Circle()
+                .fill(state.mode == .working ? Color.green : Color.gray.opacity(0.5))
+                .frame(width: 8, height: 8)
+            Text(state.mode == .working ? state.t("计时中", "Counting") : state.t("已暂停", "Paused"))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Button {
+                state.collapseToIcon()
+            } label: {
+                Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary.opacity(0.75))
+            }
+            .buttonStyle(.plain)
+            .help("缩略为图标")
+            Button {
+                NSApp.terminate(nil)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary.opacity(0.75))
+            }
+            .buttonStyle(.plain)
+            .help("退出 Ent303 Rise")
+        }
+    }
+
+    // MARK: - 检测区
+
+    @ViewBuilder
+    private var detectionArea: some View {
+        if state.detectionMode == .manual {
+            manualButtons
+        } else {
+            autoStatusCard
+        }
+    }
+
+    private var manualButtons: some View {
+        HStack(spacing: 10) {
+            modeButton(icon: "desktopcomputer",
+                       label: "在电脑前",
+                       active: state.mode == .working) {
+                state.setWorking()
+            }
+            modeButton(icon: "figure.walk",
+                       label: "去活动",
+                       active: state.mode == .away) {
+                state.setAway()
+            }
+        }
+    }
+
+    private func modeButton(icon: String,
+                            label: String,
+                            active: Bool,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 26, weight: .medium))
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(active ? Color.accentColor.opacity(0.9)
+                                 : Color.white.opacity(0.08))
+            )
+            .foregroundStyle(active ? Color.white : Color.primary)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(active ? Color.clear
+                                         : Color.white.opacity(0.10),
+                                  lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var autoStatusCard: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(state.mode == .working ? Color.green : Color.secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("自动检测中")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(state.autoStatusText)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+        )
+    }
+
+    // MARK: - 计时
+
+    private var timerBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("连续工作")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("目标 \(state.goalText)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(state.isTestInterval ? .orange : .secondary)
+            }
+            Text(state.formattedDuration)
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .monospacedDigit()
+            ProgressView(value: state.progress)
+                .progressViewStyle(.linear)
+                .tint(state.progress >= 0.8 ? .orange : .accentColor)
+        }
+    }
+
+    // MARK: - 提醒区
+
+    @ViewBuilder
+    private var reminderArea: some View {
+        if let r = state.reminder {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: r.icon)
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(r.title)
+                        .font(.system(size: 13, weight: .bold))
+                }
+                Text(r.detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    state.acknowledgeReminder()
+                } label: {
+                    Text(state.t("我起来了", "I moved"))
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(Color.orange.opacity(0.85))
+                        )
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.orange.opacity(0.15))
+            )
+        } else {
+            VStack(spacing: 8) {
+                Image(systemName: "hourglass")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.secondary)
+                Text("距下次提醒还有 \(state.remainingText)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Button("预览提醒") {
+                    state.triggerReminder()
+                }
+                .font(.system(size: 10, weight: .semibold))
+                .buttonStyle(.plain)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.white.opacity(0.16)))
+            }
+            .frame(maxWidth: .infinity, minHeight: 96)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
+            )
+        }
+    }
+
+    // MARK: - 设置
+
+    private var settingsBlock: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Text("提醒方式")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Picker("", selection: $state.detectionMode) {
+                    ForEach(AppState.DetectionMode.allCases) { m in
+                        Text(m.rawValue).tag(m)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 148)
+            }
+
+            Divider().opacity(0.25)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Text(state.t("提醒间隔", "Interval"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    if state.isTestInterval {
+                        Text("测试：\(state.intervalSeconds) 秒")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.orange)
+                        Button("退出测试") {
+                            state.intervalSeconds = 45 * 60
+                        }
+                        .font(.system(size: 10, weight: .semibold))
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.white.opacity(0.14)))
+                    } else {
+                        Button("10 秒测试") {
+                            state.intervalSeconds = 10
+                        }
+                        .font(.system(size: 10, weight: .semibold))
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.white.opacity(0.14)))
+                        .help("仅用于技术测试，不属于正式选项")
+                    }
+                }
+
+                if state.isTestInterval {
+                    Text("当前为测试间隔，点「退出测试」恢复 45 分钟")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange.opacity(0.9))
+                } else {
+                    HStack(spacing: 6) {
+                        durationField($hoursInput, unit: "时", field: .hours)
+                        durationField($minutesInput, unit: "分", field: .minutes)
+                        durationField($secondsInput, unit: "秒", field: .seconds)
+                        Spacer(minLength: 4)
+                        Stepper("", value: minutesStepperBinding, in: 1...720, step: 1)
+                            .labelsHidden()
+                            .help("上下箭头按分钟调整")
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+        )
+    }
+
+    private func durationField(_ text: Binding<String>,
+                               unit: String,
+                               field: DurationFocus) -> some View {
+        HStack(spacing: 3) {
+            TextField("", text: text)
+                .textFieldStyle(.plain)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .frame(width: 22)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.white.opacity(focus == field ? 0.20 : 0.12))
+                )
+                .focused($focus, equals: field)
+                // 回车只负责结束编辑，提交交给 focus 变化
+                .onSubmit { dismissFocus() }
+            Text(unit)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
