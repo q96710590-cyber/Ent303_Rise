@@ -251,7 +251,7 @@ struct IntroView: View {
 
     /// 左移完成后菜单才出现
     /// 平台左移结束后才显示菜单（纯时间判断，避免依赖状态标志）
-    private var menuVisible: Bool { elapsed >= condenseTime + 1.2 }
+    private var menuVisible: Bool { finished || elapsed >= condenseTime + 1.2 }
 
     @ViewBuilder
     private func menuRow(_ c: Composition) -> some View {

@@ -177,7 +177,7 @@ struct FocusPanel: View {
                     }
                     state.pomodoroRunning.toggle()
                 } label: {
-                    Text(state.pomodoroRunning ? "暂停" : "开始")
+                    Text(state.pomodoroRunning ? state.t("暂停", "Pause") : state.t("开始", "Start"))
                         .font(.system(size: 11, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
