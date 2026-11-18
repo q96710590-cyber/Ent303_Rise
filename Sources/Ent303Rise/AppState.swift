@@ -42,6 +42,10 @@ final class AppState: ObservableObject {
     @Published var inspectorOpen = false
     /// 开屏动画是否正在播放（播放期间禁止缩略，否则动画会被打断）
     @Published var introPlaying = false
+    /// 共享钱包：商店消费与运动奖励共用
+    @Published var coins = 20
+    /// 跟练窗口是否打开
+    @Published var movementOpen = false
     /// 自动检测是否启用自适应（初期间隔更长，逐步逼近最佳间隔）
     @Published var adaptive = true
     /// 番茄钟时长（分钟）
@@ -238,7 +242,7 @@ final class AppState: ObservableObject {
     }
 
     private func evaluateCollapse() {
-        guard !collapsed, !isEditing, !isHovering, !inspectorOpen, !introPlaying,
+        guard !collapsed, !isEditing, !isHovering, !inspectorOpen, !introPlaying, !movementOpen,
               reminder == nil, let leftAt else { return }
         if Date().timeIntervalSince(leftAt) >= collapseDelay {
             collapsed = true

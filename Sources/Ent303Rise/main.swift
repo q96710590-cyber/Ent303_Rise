@@ -99,6 +99,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private let state = AppState()
     private var cancellables = Set<AnyCancellable>()
+    /// 跟练窗口（动作识别）
+    private var movementWindow: NSWindow?
     private var hoverMonitor: Timer?
 
     /// 详情窗最后一次的位置。缩略时以它为锚点。
@@ -112,6 +114,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         makePanel()
         makeStatusItem()
         observeCollapse()
+        observeMovement()
+        if CommandLine.arguments.contains("--demo-movement") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.state.movementOpen = true }
+        }
         startHoverMonitor()
         runDemoMoveIfNeeded()
 
@@ -197,6 +203,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return img
         }
         return NSImage(systemSymbolName: "figure.stand", accessibilityDescription: nil)
+    }
+
+    // MARK: - 跟练窗口
+
+    /// 打开/关闭动作识别窗口：居中显示，关闭时释放摄像头
+    private func observeMovement() {
+        state.$movementOpen
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] open in
+                guard let self else { return }
+                if open {
+                    if let window = self.movementWindow {
+                        window.makeKeyAndOrderFront(nil)
+                        return
+                    }
+                    let window = NSWindow(
+                        contentRect: NSRect(x: 0, y: 0, width: 800, height: 730),
+                        styleMask: [.titled, .closable], backing: .buffered, defer: false
+                    )
+                    window.title = "RISE · 动一动赚金币"
+                    window.isReleasedWhenClosed = false
+                    window.contentViewController = NSHostingController(
+                        rootView: MovementView().environmentObject(self.state)
+                    )
+                    window.delegate = self
+                    window.center()          // 屏幕正中
+                    self.movementWindow = window
+                    NSApp.activate(ignoringOtherApps: true)
+                    window.makeKeyAndOrderFront(nil)
+                } else if let window = self.movementWindow {
+                    window.contentViewController = nil   // 触发摄像头释放
+                    self.movementWindow = nil
+                    window.close()
+                    self.state.expand()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - 缩略 / 展开
@@ -330,6 +374,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         if let w = notification.object as? NSWindow, w === inspectorWindow {
             state.setInspectorOpen(false)
+        }
+        if let w = notification.object as? NSWindow, w === movementWindow {
+            state.movementOpen = false
         }
     }
 

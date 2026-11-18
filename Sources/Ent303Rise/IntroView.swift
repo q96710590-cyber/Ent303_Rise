@@ -79,7 +79,6 @@ struct IntroView: View {
     /// 是否出现过提醒（用于"提醒消失后自动展开菜单"）
     @State private var hadReminder = false
     /// 金币余额（测试版默认 20）
-    @State private var coins = 20
     /// 单件价格（测试期统一 1，后续可按分类配置）
     private static let itemPrice = 1
 
@@ -591,8 +590,8 @@ struct IntroView: View {
         let key = "\(tab)_\(index)"
 
         // 余额不足则不出手
-        guard coins >= Self.itemPrice else { return }
-        coins -= Self.itemPrice
+        guard state.coins >= Self.itemPrice else { return }
+        state.coins -= Self.itemPrice
 
         if Self.oneShotTabs.contains(tab) {
             guard (owned[key] ?? 0) == 0 else { return }
@@ -635,7 +634,7 @@ struct IntroView: View {
                     .interpolation(.high)
                     .frame(width: iconSize, height: iconSize)
             }
-            Text("\(coins)")
+            Text("\(state.coins)")
                 .font(.system(size: c.panelH * 0.062, weight: .bold, design: .rounded))
                 .foregroundStyle(Color(red: 0.36, green: 0.30, blue: 0.29))
                 .monospacedDigit()

@@ -229,6 +229,8 @@ struct ContentView: View {
                 Button {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
                         state.acknowledgeReminder()
+                        // 点「我起来了」→ 打开动作识别窗口，完成动作可赚金币
+                        state.movementOpen = true
                     }
                 } label: {
                     Text(state.t("我起来了", "I moved"))

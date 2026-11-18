@@ -38,7 +38,7 @@ swiftc -O -target arm64-apple-macos13.0 \
   -sdk "$SDK" \
   -o build/Ent303_Rise \
   Sources/Ent303Rise/*.swift \
-  -framework AppKit -framework SwiftUI
+  -framework AppKit -framework SwiftUI -framework AVFoundation -framework Vision -framework CoreImage
 
 APP="build/Ent303_Rise.app"
 echo "==> 打包 $APP"
@@ -60,6 +60,10 @@ if [ -f Resources/coin.gif ]; then
 fi
 if [ -f Resources/pet.gif ]; then
   cp Resources/pet.gif "$APP/Contents/Resources/pet.gif"
+fi
+if [ -d Resources/movement ]; then
+  rm -rf "$APP/Contents/Resources/movement"
+  cp -R Resources/movement "$APP/Contents/Resources/movement"
 fi
 if [ -d Resources/shop ]; then
   rm -rf "$APP/Contents/Resources/shop"
