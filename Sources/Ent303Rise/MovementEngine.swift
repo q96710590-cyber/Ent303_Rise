@@ -35,16 +35,25 @@ struct BodyPose {
     /// Vision normalized coordinates, origin at bottom left, unmirrored.
     let points: [BodyJoint: CGPoint]
 
-    var isVisible: Bool { BodyJoint.allCases.allSatisfy { points[$0] != nil } }
+    /// 只要求上半身：肩、肘、腕。髋部不参与判定，画面里可以只露出上半身。
+    var isVisible: Bool {
+        [.leftShoulder, .rightShoulder, .leftElbow, .rightElbow,
+         .leftWrist, .rightWrist].allSatisfy { points[$0] != nil }
+    }
+
+    /// 用肩宽估算躯干尺度（约等于肩到髋的距离），不再依赖髋部关节点
+    var torsoScale: CGFloat {
+        guard let ls = points[.leftShoulder], let rs = points[.rightShoulder] else { return 0 }
+        return hypot(ls.x - rs.x, ls.y - rs.y) * 1.4
+    }
 
     func matches(_ movement: Movement) -> Bool {
         guard isVisible,
               let ls = points[.leftShoulder], let rs = points[.rightShoulder],
               let le = points[.leftElbow], let re = points[.rightElbow],
-              let lw = points[.leftWrist], let rw = points[.rightWrist],
-              let lh = points[.leftHip], let rh = points[.rightHip] else { return false }
-        let torso = (ls.y + rs.y - lh.y - rh.y) / 2
-        guard torso > 0.10, abs(ls.y - rs.y) < torso * 0.35 else { return false }
+              let lw = points[.leftWrist], let rw = points[.rightWrist] else { return false }
+        let torso = torsoScale
+        guard torso > 0.12, abs(ls.y - rs.y) < torso * 0.35 else { return false }
         switch movement {
         case .reach:
             return lw.y > ls.y + torso * 0.65 && rw.y > rs.y + torso * 0.65
@@ -62,10 +71,9 @@ struct BodyPose {
 
     var isNeutral: Bool {
         guard isVisible, let ls = points[.leftShoulder], let rs = points[.rightShoulder],
-              let lw = points[.leftWrist], let rw = points[.rightWrist],
-              let lh = points[.leftHip], let rh = points[.rightHip] else { return false }
-        let torso = (ls.y + rs.y - lh.y - rh.y) / 2
-        return torso > 0.10 && lw.y < ls.y - torso * 0.65 && rw.y < rs.y - torso * 0.65
+              let lw = points[.leftWrist], let rw = points[.rightWrist] else { return false }
+        let torso = torsoScale
+        return torso > 0.12 && lw.y < ls.y - torso * 0.65 && rw.y < rs.y - torso * 0.65
     }
 
     private func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {

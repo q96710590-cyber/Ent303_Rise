@@ -42,6 +42,8 @@ struct MovementView: View {
                         Spacer()
                         if !camera.running && !workout.finished {
                             Button("开启摄像头") { camera.start() }
+                        } else if camera.running && !workout.started && !workout.finished {
+                            Button("开始识别") { maybeAutoStart(force: true) }
                         }
                     }.font(.system(size: 12))
                     Text(camera.message).font(.system(size: 12)).opacity(0.75)
@@ -104,10 +106,11 @@ struct MovementView: View {
             RoundedRectangle(cornerRadius: 22).fill(MovementStyle.brown.opacity(0.09))
             if let image = camera.image {
                 ZStack {
-                    Image(decorative: image, scale: 1).resizable()
-                    SkeletonView(pose: camera.pose)
+                    Image(decorative: image, scale: 1).resizable().scaledToFill()
+                    SkeletonView(pose: camera.pose,
+                                 imageSize: CGSize(width: image.width, height: image.height))
                 }
-                .aspectRatio(CGFloat(image.width) / CGFloat(image.height), contentMode: .fit)
+                .clipped()
                 .scaleEffect(x: -1, y: 1)
                 .clipShape(RoundedRectangle(cornerRadius: 22))
             } else {
@@ -116,11 +119,11 @@ struct MovementView: View {
                         .font(.system(size: 44)).foregroundStyle(MovementStyle.sage)
                     Text(workout.finished ? "跟练完成，辛苦啦！" : "给自己留一点活动空间")
                         .font(.system(size: 18, weight: .semibold))
-                    Text("正对镜头，上半身、髋部和举起的双手都要入镜")
+                    Text("正对镜头，让肩、肘和双手都入镜即可")
                         .font(.system(size: 12)).opacity(0.7)
                 }
             }
-        }.frame(width: 480, height: 360)
+        }.frame(width: 340, height: 470)
         .overlay(alignment: .topLeading) {
             Text(workout.finished ? "✓ 跟练完成" : (workout.visible ? "✓ 已找到你" : "等待完整姿势"))
                 .font(.system(size: 12, weight: .semibold)).padding(10)
@@ -200,8 +203,8 @@ struct MovementView: View {
     }
 
     /// 相机就绪且识别到完整姿势时自动开始，不需要用户点确认
-    private func maybeAutoStart() {
-        guard camera.running, workout.visible,
+    private func maybeAutoStart(force: Bool = false) {
+        guard camera.running, (force || workout.visible),
               !workout.started, !workout.finished,
               !workout.selected.isEmpty else { return }
         state.acknowledgeReminder()
@@ -223,6 +226,7 @@ struct MovementView: View {
 
 private struct SkeletonView: View {
     let pose: BodyPose?
+    var imageSize: CGSize? = nil
     private let edges: [(BodyJoint, BodyJoint)] = [
         (.leftWrist, .leftElbow), (.leftElbow, .leftShoulder),
         (.leftShoulder, .rightShoulder), (.rightShoulder, .rightElbow),
@@ -232,8 +236,18 @@ private struct SkeletonView: View {
     var body: some View {
         Canvas { context, size in
             guard let pose else { return }
+            // 竖版面板是 center-crop 显示，骨架必须按同一变换换算，否则会错位
+            var box = size
+            var offset = CGPoint.zero
+            if let img = imageSize, img.width > 0, img.height > 0 {
+                let scale = max(size.width / img.width, size.height / img.height)
+                box = CGSize(width: img.width * scale, height: img.height * scale)
+                offset = CGPoint(x: (size.width - box.width) / 2,
+                                 y: (size.height - box.height) / 2)
+            }
             func project(_ point: CGPoint) -> CGPoint {
-                CGPoint(x: point.x * size.width, y: (1 - point.y) * size.height)
+                CGPoint(x: offset.x + point.x * box.width,
+                        y: offset.y + (1 - point.y) * box.height)
             }
             for (a, b) in edges {
                 guard let p = pose.points[a], let q = pose.points[b] else { continue }

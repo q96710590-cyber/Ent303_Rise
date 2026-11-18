@@ -15,7 +15,8 @@ final class MovementSession: ObservableObject {
     private(set) var routine: [Movement] = []
     private(set) var targetSets = 0
     private var credit: (() -> Void)?
-    let repsPerAction = 3
+    /// 测试版：每个动作只做 1 次，做一次即算完成
+    let repsPerAction = 1
 
     var finished: Bool { started && completedSets == targetSets }
     var current: Movement? { routine.indices.contains(actionIndex) ? routine[actionIndex] : nil }
@@ -39,8 +40,9 @@ final class MovementSession: ObservableObject {
 
     func start(credit: @escaping () -> Void) {
         guard !started, !selected.isEmpty else { return }
-        routine = Movement.allCases.filter { selected.contains($0) }
-        targetSets = min(20, max(1, plannedSets))
+        // 测试版：只保留一个动作、一组，做完一个动作即视为完成
+        routine = Array(Movement.allCases.filter { selected.contains($0) }.prefix(1))
+        targetSets = 1
         self.credit = credit
         engine.reset()
         started = true
