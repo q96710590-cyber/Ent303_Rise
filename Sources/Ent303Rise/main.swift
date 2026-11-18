@@ -229,10 +229,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         rootView: MovementView().environmentObject(self.state)
                     )
                     window.delegate = self
+                    window.setContentSize(NSSize(width: 800, height: 730))
                     window.center()          // 屏幕正中
                     self.movementWindow = window
                     NSApp.activate(ignoringOtherApps: true)
                     window.makeKeyAndOrderFront(nil)
+                    window.center()          // 内容布局完成后再次居中
                 } else if let window = self.movementWindow {
                     window.contentViewController = nil   // 触发摄像头释放
                     self.movementWindow = nil

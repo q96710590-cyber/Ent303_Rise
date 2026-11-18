@@ -58,13 +58,9 @@ struct MovementView: View {
                     Button(workout.paused ? "继续跟练" : "暂停一下") { workout.togglePause() }
                         .disabled(!camera.running)
                 }
-                if workout.finished {
-                    primary("带着金币回家") { state.movementOpen = false }
-                } else if !workout.started {
-                    primary("开始跟练 · 目标 \(workout.plannedSets * 5) 金币") {
-                        state.acknowledgeReminder()
-                        workout.start { state.coins += 5 }
-                    }.disabled(workout.selected.isEmpty || !camera.running || !workout.visible)
+                // 右下角唯一的动作：结束并回家
+                primary(state.t("我回来了，结束", "I'm back · Finish")) {
+                    state.movementOpen = false
                 }
             }
         }
@@ -78,6 +74,8 @@ struct MovementView: View {
                 lastPoseAt = Date()
                 workout.receive(pose, at: timestamp)
             }
+            // 打开即自动开启摄像头，用户无需手动点
+            camera.start()
         }
         .onDisappear { camera.stop(); camera.onPose = nil }
         .onChange(of: workout.finished) { done in if done { camera.stop() } }
@@ -91,6 +89,8 @@ struct MovementView: View {
         .onReceive(watchdog) { now in
             if now.timeIntervalSince(lastPoseAt) > 0.7 { workout.invalidateTracking() }
         }
+        .onChange(of: camera.running) { _ in maybeAutoStart() }
+        .onChange(of: workout.visible) { _ in maybeAutoStart() }
         .confirmationDialog("结束本次跟练？", isPresented: $confirmExit) {
             Button("结束跟练") { state.movementOpen = false }
             Button("继续跟练", role: .cancel) { }
@@ -197,6 +197,15 @@ struct MovementView: View {
             Text(workout.current?.instruction ?? "跟着示意慢慢做，动作幅度以舒适为准。")
                 .font(.system(size: 12)).lineSpacing(4).opacity(0.75)
         }.padding(16).background(RoundedRectangle(cornerRadius: 22).fill(MovementStyle.yellow.opacity(0.28)))
+    }
+
+    /// 相机就绪且识别到完整姿势时自动开始，不需要用户点确认
+    private func maybeAutoStart() {
+        guard camera.running, workout.visible,
+              !workout.started, !workout.finished,
+              !workout.selected.isEmpty else { return }
+        state.acknowledgeReminder()
+        workout.start { state.coins += 5 }   // 每完成一组立即入账
     }
 
     private func primary(_ title: String, action: @escaping () -> Void) -> some View {
