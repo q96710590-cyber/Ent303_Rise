@@ -91,7 +91,7 @@ final class MovementCamera: NSObject, ObservableObject, AVCaptureVideoDataOutput
                 DispatchQueue.main.async {
                     guard self.generation == token else { return }
                     self.running = active
-                    self.message = active ? "请让头顶、双手和髋部都出现在画面中。" : "摄像头未能启动，请关闭其他占用摄像头的应用后重试。"
+                    self.message = active ? "请让肩、肘和双手都出现在画面中。" : "摄像头未能启动，请关闭其他占用摄像头的应用后重试。"
                 }
             } catch {
                 DispatchQueue.main.async {

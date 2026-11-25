@@ -123,7 +123,9 @@ struct MovementView: View {
                         .font(.system(size: 12)).opacity(0.7)
                 }
             }
-        }.frame(width: 340, height: 470)
+        }
+        .frame(width: 340, height: 470)
+        .clipped()
         .overlay(alignment: .topLeading) {
             Text(workout.finished ? "✓ 跟练完成" : (workout.visible ? "✓ 已找到你" : "等待完整姿势"))
                 .font(.system(size: 12, weight: .semibold)).padding(10)
