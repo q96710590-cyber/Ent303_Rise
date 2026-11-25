@@ -6,7 +6,7 @@ import Combine
 final class MovementCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     @Published private(set) var image: CGImage?
     @Published private(set) var pose: BodyPose?
-    @Published private(set) var message = "准备好后，开启摄像头。"
+    @Published private(set) var message = Lang.t("准备好后，开启摄像头。", "Enable the camera when ready.")
     @Published private(set) var running = false
     var onPose: ((BodyPose?, TimeInterval) -> Void)?
 
@@ -25,7 +25,7 @@ final class MovementCamera: NSObject, ObservableObject, AVCaptureVideoDataOutput
             forName: .AVCaptureSessionRuntimeError, object: session, queue: .main
         ) { [weak self] _ in
             self?.stop()
-            self?.message = "摄像头连接中断，请重新开启。"
+            self?.message = Lang.t("摄像头连接中断，请重新开启。", "Camera disconnected. Please reopen it.")
         }
     }
 
@@ -34,7 +34,7 @@ final class MovementCamera: NSObject, ObservableObject, AVCaptureVideoDataOutput
     func start() {
         generation += 1
         let token = generation
-        message = "正在连接摄像头…"
+        message = Lang.t("正在连接摄像头…", "Connecting camera…")
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: configureAndStart(token)
         case .notDetermined:
@@ -42,11 +42,11 @@ final class MovementCamera: NSObject, ObservableObject, AVCaptureVideoDataOutput
                 DispatchQueue.main.async {
                     guard let self, self.generation == token else { return }
                     if allowed { self.configureAndStart(token) }
-                    else { self.message = "未获得摄像头权限，请在系统设置 → 隐私与安全性 → 摄像头中允许 RISE。" }
+                    else { self.message = Lang.t("未获得摄像头权限，请在系统设置 → 隐私与安全性 → 摄像头中允许 RISE。", "Camera permission denied. Allow RISE in System Settings → Privacy & Security → Camera.") }
                 }
             }
         default:
-            message = "摄像头不可用，请在系统设置 → 隐私与安全性 → 摄像头中允许 RISE。"
+            message = Lang.t("摄像头不可用，请在系统设置 → 隐私与安全性 → 摄像头中允许 RISE。", "Camera unavailable. Allow RISE in System Settings → Privacy & Security → Camera.")
         }
     }
 
@@ -91,12 +91,12 @@ final class MovementCamera: NSObject, ObservableObject, AVCaptureVideoDataOutput
                 DispatchQueue.main.async {
                     guard self.generation == token else { return }
                     self.running = active
-                    self.message = active ? "请让肩、肘和双手都出现在画面中。" : "摄像头未能启动，请关闭其他占用摄像头的应用后重试。"
+                    self.message = active ? Lang.t("请让肩、肘和双手都出现在画面中。", "Keep shoulders, elbows and hands in frame.") : Lang.t("摄像头未能启动，请关闭其他占用摄像头的应用后重试。", "Camera failed to start. Close other apps using it and retry.")
                 }
             } catch {
                 DispatchQueue.main.async {
                     guard self.generation == token else { return }
-                    self.message = "无法打开摄像头，请检查设备连接后重试。"
+                    self.message = Lang.t("无法打开摄像头，请检查设备连接后重试。", "Cannot open the camera. Check the connection and retry.")
                 }
             }
         }

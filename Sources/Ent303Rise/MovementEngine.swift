@@ -5,16 +5,16 @@ enum Movement: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .reach: return "向上伸展"
-        case .wings: return "双臂侧平举"
-        case .curl: return "双臂弯举"
+        case .reach: return Lang.t("向上伸展", "Reach up")
+        case .wings: return Lang.t("双臂侧平举", "Arms out")
+        case .curl: return Lang.t("双臂弯举", "Bicep curl")
         }
     }
     var instruction: String {
         switch self {
-        case .reach: return "双手举过头顶，保持片刻，再自然放下。"
-        case .wings: return "双臂向两侧展开至肩高，保持片刻，再放下。"
-        case .curl: return "上臂靠近身体，双手抬向肩膀，再伸直放下。"
+        case .reach: return Lang.t("双手举过头顶，保持片刻，再自然放下。", "Raise both hands overhead, hold, then lower.")
+        case .wings: return Lang.t("双臂向两侧展开至肩高，保持片刻，再放下。", "Stretch both arms out to shoulder height, hold, lower.")
+        case .curl: return Lang.t("上臂靠近身体，双手抬向肩膀，再伸直放下。", "Elbows in, lift hands to shoulders, then lower.")
         }
     }
     var symbol: String {

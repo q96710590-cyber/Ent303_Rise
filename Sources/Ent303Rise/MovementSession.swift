@@ -28,13 +28,13 @@ final class MovementSession: ObservableObject {
     }
     var cue: String {
         if finished { return "喵！目标完成，\(earned) 枚金币已经进入钱包啦。" }
-        if paused { return "休息一下吧，准备好再继续。" }
-        if !started { return "选好动作和组数，我们一起动一动！" }
-        if !visible { return "请正对镜头，退后一点，让肩、肘、双手和髋部都入镜。画面中只留一人哦。" }
+        if paused { return Lang.t("休息一下吧，准备好再继续。", "Take a break, continue when ready.") }
+        if !started { return Lang.t("选好动作和组数，我们一起动一动！", "Pick a move and let's go!") }
+        if !visible { return Lang.t("请正对镜头，退后一点，让肩、肘、双手和髋部都入镜。画面中只留一人哦。", "Face the camera, keep shoulders and arms in frame. One person only.") }
         switch engine.phase {
-        case .ready: return "先把双手自然放下，让我看看准备姿势。"
+        case .ready: return Lang.t("先把双手自然放下，让我看看准备姿势。", "Lower your arms so I can see your start pose.")
         case .target: return (current?.instruction ?? "") + " 稳稳保持 0.8 秒哦！"
-        case .lower: return "很好！双手自然放下，完成这一次。"
+        case .lower: return Lang.t("很好！双手自然放下，完成这一次。", "Nice! Lower your arms to finish this rep.")
         }
     }
 

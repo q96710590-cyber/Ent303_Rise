@@ -223,7 +223,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         contentRect: NSRect(x: 0, y: 0, width: 800, height: 730),
                         styleMask: [.titled, .closable], backing: .buffered, defer: false
                     )
-                    window.title = "RISE · 动一动赚金币"
+                    window.title = Lang.t("RISE · 动一动赚金币", "RISE · Move to earn")
                     window.isReleasedWhenClosed = false
                     window.contentViewController = NSHostingController(
                         rootView: MovementView().environmentObject(self.state)

@@ -23,15 +23,15 @@ struct MovementView: View {
         VStack(spacing: 18) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("RISE · 小猫陪你动一动").font(.system(size: 24, weight: .bold, design: .rounded))
-                    Text("完成一整组，收获 5 枚金币").font(.system(size: 13)).opacity(0.7)
+                    Text(Lang.t("RISE · 小猫陪你动一动", "RISE · Move with your cat")).font(.system(size: 24, weight: .bold, design: .rounded))
+                    Text(Lang.t("完成一整组，收获 5 枚金币", "Finish a set, earn 5 coins")).font(.system(size: 13)).opacity(0.7)
                 }
                 Spacer()
                 Label("\(state.coins)", systemImage: "circle.circle.fill")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .padding(12).background(Capsule().fill(MovementStyle.yellow))
                 Button { requestExit() } label: { Image(systemName: "xmark").padding(12) }
-                    .help("退出跟练")
+                    .help(Lang.t("退出跟练", "Quit workout"))
             }
             ScrollView(.vertical) {
               HStack(alignment: .top, spacing: 20) {
@@ -40,12 +40,12 @@ struct MovementView: View {
                     HStack {
                         Circle().fill(camera.running ? MovementStyle.sage : MovementStyle.brown.opacity(0.3))
                             .frame(width: 7, height: 7)
-                        Text(camera.running ? "摄像头已开启 · 镜像画面" : "摄像头未开启")
+                        Text(camera.running ? Lang.t("摄像头已开启 · 镜像画面", "Camera on · mirrored") : Lang.t("摄像头未开启", "Camera off"))
                         Spacer()
                         if !camera.running && !workout.finished {
-                            Button("开启摄像头") { camera.start() }
+                            Button(Lang.t("开启摄像头", "Enable camera")) { camera.start() }
                         } else if camera.running && !workout.started && !workout.finished {
-                            Button("开始识别") { maybeAutoStart(force: true) }
+                            Button(Lang.t("开始识别", "Start detecting")) { maybeAutoStart(force: true) }
                         }
                     }.font(.system(size: 12))
                     Text(camera.message).font(.system(size: 12)).opacity(0.75)
@@ -56,14 +56,14 @@ struct MovementView: View {
               }
             }
             HStack {
-                Text("画面仅在本机识别，不录制、不上传。每次动作需抬起、保持、放下。").font(.system(size: 11)).opacity(0.65)
+                Text(Lang.t("画面仅在本机识别，不录制、不上传。每次动作需抬起、保持、放下。", "Processed on-device. No recording, no upload. Raise, hold, lower.")).font(.system(size: 11)).opacity(0.65)
                 Spacer()
                 if workout.started && !workout.finished {
-                    Button(workout.paused ? "继续跟练" : "暂停一下") { workout.togglePause() }
+                    Button(workout.paused ? Lang.t("继续跟练", "Resume") : Lang.t("暂停一下", "Pause")) { workout.togglePause() }
                         .disabled(!camera.running)
                 }
                 // 右下角唯一的动作：结束并回家
-                primary(state.t("我回来了，结束", "I'm back · Finish")) {
+                primary(state.t(Lang.t("我回来了，结束", "I'm back · Finish"), "I'm back · Finish")) {
                     state.movementOpen = false
                 }
             }
@@ -88,7 +88,7 @@ struct MovementView: View {
             if !CommandLine.arguments.contains("--demo-report") { camera.start() }
             if CommandLine.arguments.contains("--demo-report") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                    let rep = state.recordMovement(action: "向上伸展")
+                    let rep = state.recordMovement(action: Lang.t("向上伸展", "Reach up"))
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { report = rep }
                 }
             }
@@ -107,9 +107,9 @@ struct MovementView: View {
         }
         .onChange(of: camera.running) { _ in maybeAutoStart() }
         .onChange(of: workout.visible) { _ in maybeAutoStart() }
-        .confirmationDialog("结束本次跟练？", isPresented: $confirmExit) {
-            Button("结束跟练") { state.movementOpen = false }
-            Button("继续跟练", role: .cancel) { }
+        .confirmationDialog(Lang.t("结束本次跟练？", "End this workout?"), isPresented: $confirmExit) {
+            Button(Lang.t("结束跟练", "End workout")) { state.movementOpen = false }
+            Button(Lang.t("继续跟练", "Resume"), role: .cancel) { }
         } message: {
             Text("已完成的 \(workout.completedSets) 组、\(workout.earned) 枚金币会保留；未完成的一组不计奖励。")
         }
@@ -118,22 +118,22 @@ struct MovementView: View {
     /// 完成一次后的简短报告，居中显示，几秒后自动消失
     private func reportCard(_ r: MovementReport) -> some View {
         VStack(spacing: 10) {
-            Text("完成一次「\(r.action)」")
+            Text(Lang.t("完成一次「\(r.action)」", "Done · \(r.action)"))
                 .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(MovementStyle.brown)
-            Text("+ \(r.gained) 金币")
+            Text(Lang.t("+ \(r.gained) 金币", "+\(r.gained) coins"))
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(MovementStyle.yellow)
 
             HStack(spacing: 18) {
-                reportStat("坚持", "\(r.dayCount) 天")
-                reportStat("累计", "\(r.totalReps) 次")
-                reportStat("少坐", r.avoidedText)
+                reportStat(Lang.t("坚持", "Days"), Lang.t("\(r.dayCount) 天", "\(r.dayCount)d"))
+                reportStat(Lang.t("累计", "Total"), Lang.t("\(r.totalReps) 次", "\(r.totalReps)x"))
+                reportStat(Lang.t("少坐", "Less sitting"), r.avoidedText)
             }
             .padding(.top, 2)
 
             if r.isNewDay {
-                Text("新的一天，继续保持")
+                Text(Lang.t("新的一天，继续保持", "New day, keep it up"))
                     .font(.system(size: 11))
                     .foregroundStyle(MovementStyle.sage)
             }
@@ -179,9 +179,9 @@ struct MovementView: View {
                 VStack(spacing: 14) {
                     Image(systemName: workout.finished ? "checkmark.seal.fill" : "camera.fill")
                         .font(.system(size: 44)).foregroundStyle(MovementStyle.sage)
-                    Text(workout.finished ? "跟练完成，辛苦啦！" : "给自己留一点活动空间")
+                    Text(workout.finished ? Lang.t("跟练完成，辛苦啦！", "Workout complete. Nice work!") : Lang.t("给自己留一点活动空间", "Give yourself some room"))
                         .font(.system(size: 18, weight: .semibold))
-                    Text("正对镜头，让肩、肘和双手都入镜即可")
+                    Text(Lang.t("正对镜头，让肩、肘和双手都入镜即可", "Face the camera — shoulders, elbows and hands in frame"))
                         .font(.system(size: 12)).opacity(0.7)
                 }
             }
@@ -189,7 +189,7 @@ struct MovementView: View {
         .frame(width: 340, height: 470)
         .clipped()
         .overlay(alignment: .topLeading) {
-            Text(workout.finished ? "✓ 跟练完成" : (workout.visible ? "✓ 已找到你" : "等待完整姿势"))
+            Text(workout.finished ? Lang.t("✓ 跟练完成", "✓ Workout done") : (workout.visible ? Lang.t("✓ 已找到你", "✓ Got you") : Lang.t("等待完整姿势", "Waiting for full pose")))
                 .font(.system(size: 12, weight: .semibold)).padding(10)
                 .background(Capsule().fill(MovementStyle.cream.opacity(0.95))).padding(12)
         }
@@ -197,7 +197,7 @@ struct MovementView: View {
 
     private var setup: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("今天想怎么动？").font(.system(size: 16, weight: .bold))
+            Text(Lang.t("今天想怎么动？", "How do you want to move?")).font(.system(size: 16, weight: .bold))
             HStack(spacing: 8) {
                 ForEach(Movement.allCases) { movement in
                     Button {
@@ -214,7 +214,7 @@ struct MovementView: View {
                 Text("\(workout.plannedSets) 组  ·  预计收获 \(workout.plannedSets * 5) 金币")
                     .font(.system(size: 14, weight: .semibold))
             }
-            Text("每组依次完成所有已选动作，每个动作 3 次。可选 1–20 组。")
+            Text(Lang.t("每组依次完成所有已选动作，每个动作 3 次。可选 1–20 组。", "Complete the selected moves in order. 1–20 sets."))
                 .font(.system(size: 12)).opacity(0.7)
         }.padding(14).background(RoundedRectangle(cornerRadius: 16).fill(.white.opacity(0.65)))
     }
@@ -222,7 +222,7 @@ struct MovementView: View {
     private var liveProgress: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(workout.finished ? "全部完成" : "第 \(workout.completedSets + 1) / \(workout.targetSets) 组")
+                Text(workout.finished ? Lang.t("全部完成", "All done") : "第 \(workout.completedSets + 1) / \(workout.targetSets) 组")
                     .font(.system(size: 17, weight: .bold))
                 Spacer()
                 Text("已入账 +\(workout.earned) 金币").font(.system(size: 13, weight: .semibold))
@@ -235,7 +235,7 @@ struct MovementView: View {
                     Text("\(workout.repetitions) / \(workout.repsPerAction) 次")
                 }.font(.system(size: 15, weight: .semibold))
                 ProgressView(value: workout.engine.holdProgress).tint(MovementStyle.yellow)
-                Text(workout.paused ? "已暂停" : "姿势保持进度 · 放下双手后计为一次")
+                Text(workout.paused ? Lang.t("已暂停", "Paused") : Lang.t("姿势保持进度 · 放下双手后计为一次", "Hold progress · lower your arms to count one"))
                     .font(.system(size: 11)).opacity(0.7)
             }
             if !workout.rewardMessage.isEmpty {
@@ -246,7 +246,7 @@ struct MovementView: View {
 
     private var guide: some View {
         VStack(spacing: 18) {
-            Text("你的陪练小猫").font(.system(size: 14, weight: .semibold))
+            Text(Lang.t("你的陪练小猫", "Your coach cat")).font(.system(size: 14, weight: .semibold))
             ZStack {
                 MovementAssetView(name: "RISE_cat_tail_only_cropped", playing: !workout.paused)
                     .frame(width: 150, height: 145)
@@ -261,7 +261,7 @@ struct MovementView: View {
                 .padding(16).background(RoundedRectangle(cornerRadius: 18).fill(.white))
             MovementDemo(movement: workout.started ? (workout.current ?? .reach) : .reach)
                 .frame(height: 125)
-            Text(workout.current?.instruction ?? "跟着示意慢慢做，动作幅度以舒适为准。")
+            Text(workout.current?.instruction ?? Lang.t("跟着示意慢慢做，动作幅度以舒适为准。", "Follow the demo — keep it comfortable."))
                 .font(.system(size: 12)).lineSpacing(4).opacity(0.75)
         }.padding(16).background(RoundedRectangle(cornerRadius: 22).fill(MovementStyle.yellow.opacity(0.28)))
     }
@@ -274,7 +274,7 @@ struct MovementView: View {
         state.acknowledgeReminder()
         workout.start {
             state.coins += 5                       // 立即入账
-            let action = workout.routine.first?.title ?? "动作"
+            let action = workout.routine.first?.title ?? Lang.t("动作", "Move")
             let rep = state.recordMovement(action: action)
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { report = rep }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.6) {

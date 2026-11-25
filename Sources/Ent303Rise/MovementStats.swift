@@ -12,9 +12,9 @@ struct MovementStats: Codable, Equatable {
 
     var avoidedText: String {
         let minutes = avoidedSeconds / 60
-        if minutes < 60 { return "\(minutes) 分钟" }
+        if minutes < 60 { return Lang.t("\(minutes) 分钟", "\(minutes)m") }
         let h = minutes / 60, m = minutes % 60
-        return m == 0 ? "\(h) 小时" : "\(h) 小时 \(m) 分"
+        return m == 0 ? Lang.t("\(h) 小时", "\(h)h") : Lang.t("\(h) 小时 \(m) 分", "\(h)h \(m)m")
     }
 }
 
