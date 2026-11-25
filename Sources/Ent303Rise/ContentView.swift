@@ -29,38 +29,20 @@ struct ContentView: View {
     private var expandedContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            pageTabs
-            if page == 0 {
-                detectionArea
-                timerBlock
-                reminderArea
-                Spacer(minLength: 0)
-                settingsBlock
-            } else {
-                page2
-            }
+            // 只保留宠物页（概览与页签属于测试入口，已移除）
+            page2
         }
         .padding(16)
         .frame(width: 320, height: 548, alignment: .top)
         .background(
-            Group {
-                if page == 0 {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                } else {
-                    // 宠物页不要灰底，让猫和平台直接浮在桌面上
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(Color.clear)
-                }
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            // 应用无外边框：整块透明，猫与平台直接浮在桌面上
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.clear)
+                .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             // 点卡片空白处 = 失焦保存
             .onTapGesture { dismissFocus() }
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
-        )
+
         // 外部改动（测试按钮 / 箭头）→ 回写输入框；正在编辑时不打扰
         .onChange(of: state.intervalSeconds) { newValue in
             guard focus == nil else { return }
@@ -272,10 +254,15 @@ struct ContentView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: "pawprint.fill")
-                .font(.system(size: 14, weight: .semibold))
-            Text("Ent303 Rise")
-                .font(.system(size: 14, weight: .bold))
+            // 猫落在平台上之后，左上角标志淡出
+            HStack(spacing: 8) {
+                Image(systemName: "pawprint.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Ent303 Rise")
+                    .font(.system(size: 14, weight: .bold))
+            }
+            .opacity(state.introFinished ? 0 : 1)
+            .animation(.easeOut(duration: 0.6), value: state.introFinished)
             Spacer()
             Circle()
                 .fill(state.mode == .working ? Color.green : Color.gray.opacity(0.5))

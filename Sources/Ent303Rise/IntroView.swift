@@ -241,6 +241,7 @@ struct IntroView: View {
             }
         }
         .onChange(of: finished) { done in
+            if done { state.introFinished = true }
             guard done, CommandLine.arguments.contains("--demo-buy") else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 buy(tab: Self.panelNames[min(panelTab, 3)], slot: 2)

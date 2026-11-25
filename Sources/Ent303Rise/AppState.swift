@@ -42,6 +42,8 @@ final class AppState: ObservableObject {
     @Published var inspectorOpen = false
     /// 开屏动画是否正在播放（播放期间禁止缩略，否则动画会被打断）
     @Published var introPlaying = false
+    /// 开屏动画是否已结束（猫已落在平台上）
+    @Published var introFinished = false
     /// 共享钱包：商店消费与运动奖励共用
     @Published var coins = 20
     /// 跟练窗口是否打开
