@@ -153,6 +153,11 @@ struct IntroView: View {
                                 y: c.islandY)
                 }
 
+                // 平台拖拽手柄：按住平台可移动整个窗口
+                WindowDragHandle()
+                    .frame(width: c.islandW, height: c.islandH * 0.85)
+                    .offset(x: c.islandX - c.shiftDistance, y: c.islandY)
+
                 // 摆在平台上的物品：非食物在猫之下
                 placedLayer(c, aboveCat: false)
 
