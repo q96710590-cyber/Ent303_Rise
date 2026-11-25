@@ -69,7 +69,7 @@ struct MovementView: View {
             }
         }
         .padding(24)
-        .frame(width: 800, height: 730)
+        .frame(width: 800, height: 860)
         .foregroundStyle(MovementStyle.brown)
         .background(MovementStyle.cream)
         .buttonStyle(.plain)
@@ -111,7 +111,8 @@ struct MovementView: View {
             Button(Lang.t("结束跟练", "End workout")) { state.movementOpen = false }
             Button(Lang.t("继续跟练", "Resume"), role: .cancel) { }
         } message: {
-            Text("已完成的 \(workout.completedSets) 组、\(workout.earned) 枚金币会保留；未完成的一组不计奖励。")
+            Text(Lang.t("已完成的 \(workout.completedSets) 组、\(workout.earned) 枚金币会保留；未完成的一组不计奖励。",
+                        "Completed \(workout.completedSets) set(s) and \(workout.earned) coins are kept; an unfinished set earns nothing."))
         }
     }
 
@@ -211,7 +212,8 @@ struct MovementView: View {
                 }
             }
             Stepper(value: $workout.plannedSets, in: 1...20) {
-                Text("\(workout.plannedSets) 组  ·  预计收获 \(workout.plannedSets * 5) 金币")
+                Text(Lang.t("\(workout.plannedSets) 组  ·  预计收获 \(workout.plannedSets * 5) 金币",
+                            "\(workout.plannedSets) set(s)  ·  up to \(workout.plannedSets * 5) coins"))
                     .font(.system(size: 14, weight: .semibold))
             }
             Text(Lang.t("每组依次完成所有已选动作，每个动作 3 次。可选 1–20 组。", "Complete the selected moves in order. 1–20 sets."))
@@ -225,7 +227,7 @@ struct MovementView: View {
                 Text(workout.finished ? Lang.t("全部完成", "All done") : "第 \(workout.completedSets + 1) / \(workout.targetSets) 组")
                     .font(.system(size: 17, weight: .bold))
                 Spacer()
-                Text("已入账 +\(workout.earned) 金币").font(.system(size: 13, weight: .semibold))
+                Text(Lang.t("已入账 +\(workout.earned) 金币", "Earned +\(workout.earned) coins")).font(.system(size: 13, weight: .semibold))
             }
             ProgressView(value: workout.progress).tint(MovementStyle.sage)
             if !workout.finished, let current = workout.current {

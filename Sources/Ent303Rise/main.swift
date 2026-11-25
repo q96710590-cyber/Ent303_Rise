@@ -220,7 +220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         return
                     }
                     let window = NSWindow(
-                        contentRect: NSRect(x: 0, y: 0, width: 800, height: 730),
+                        contentRect: NSRect(x: 0, y: 0, width: 800, height: 860),
                         styleMask: [.titled, .closable], backing: .buffered, defer: false
                     )
                     window.title = Lang.t("RISE · 动一动赚金币", "RISE · Move to earn")
@@ -229,7 +229,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         rootView: MovementView().environmentObject(self.state)
                     )
                     window.delegate = self
-                    window.setContentSize(NSSize(width: 800, height: 730))
+                    window.setContentSize(NSSize(width: 800, height: 860))
                     window.center()          // 屏幕正中
                     self.movementWindow = window
                     NSApp.activate(ignoringOtherApps: true)
