@@ -46,6 +46,27 @@ final class AppState: ObservableObject {
     @Published var coins = 20
     /// 跟练窗口是否打开
     @Published var movementOpen = false
+    /// 跟练累计数据
+    @Published var movementStats = MovementStatsStore.load()
+
+    /// 记录一次完成的动作，返回给用户看的简短报告
+    @discardableResult
+    func recordMovement(action: String) -> MovementReport {
+        let today = MovementStatsStore.todayKey()
+        let isNewDay = !movementStats.days.contains(today)
+        if isNewDay { movementStats.days.append(today) }
+        movementStats.totalReps += 1
+        movementStats.byAction[action, default: 0] += 1
+        // 每完成一次，相当于把这段本该坐着的时间换成了活动
+        movementStats.avoidedSeconds += max(60, intervalSeconds)
+        MovementStatsStore.save(movementStats)
+        return MovementReport(action: action,
+                              gained: 5,
+                              dayCount: movementStats.dayCount,
+                              totalReps: movementStats.totalReps,
+                              avoidedText: movementStats.avoidedText,
+                              isNewDay: isNewDay)
+    }
     /// 自动检测是否启用自适应（初期间隔更长，逐步逼近最佳间隔）
     @Published var adaptive = true
     /// 番茄钟时长（分钟）

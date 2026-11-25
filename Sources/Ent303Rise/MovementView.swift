@@ -12,6 +12,8 @@ struct MovementView: View {
     @EnvironmentObject var state: AppState
     @StateObject private var camera = MovementCamera()
     @StateObject private var workout = MovementSession()
+    /// 完成一次动作后的小结报告
+    @State private var report: MovementReport?
     @State private var confirmExit = false
     @State private var lastPoseAt = Date.distantPast
     @State private var showReward = false
@@ -71,13 +73,25 @@ struct MovementView: View {
         .foregroundStyle(MovementStyle.brown)
         .background(MovementStyle.cream)
         .buttonStyle(.plain)
+        .overlay {
+            if let report {
+                reportCard(report)
+                    .transition(.scale(scale: 0.86).combined(with: .opacity))
+            }
+        }
         .onAppear {
             camera.onPose = { pose, timestamp in
                 lastPoseAt = Date()
                 workout.receive(pose, at: timestamp)
             }
-            // 打开即自动开启摄像头，用户无需手动点
-            camera.start()
+            // 打开即自动开启摄像头，用户无需手动点（demo 截图模式除外）
+            if !CommandLine.arguments.contains("--demo-report") { camera.start() }
+            if CommandLine.arguments.contains("--demo-report") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    let rep = state.recordMovement(action: "向上伸展")
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { report = rep }
+                }
+            }
         }
         .onDisappear { camera.stop(); camera.onPose = nil }
         .onChange(of: workout.finished) { done in if done { camera.stop() } }
@@ -98,6 +112,54 @@ struct MovementView: View {
             Button("继续跟练", role: .cancel) { }
         } message: {
             Text("已完成的 \(workout.completedSets) 组、\(workout.earned) 枚金币会保留；未完成的一组不计奖励。")
+        }
+    }
+
+    /// 完成一次后的简短报告，居中显示，几秒后自动消失
+    private func reportCard(_ r: MovementReport) -> some View {
+        VStack(spacing: 10) {
+            Text("完成一次「\(r.action)」")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(MovementStyle.brown)
+            Text("+ \(r.gained) 金币")
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(MovementStyle.yellow)
+
+            HStack(spacing: 18) {
+                reportStat("坚持", "\(r.dayCount) 天")
+                reportStat("累计", "\(r.totalReps) 次")
+                reportStat("少坐", r.avoidedText)
+            }
+            .padding(.top, 2)
+
+            if r.isNewDay {
+                Text("新的一天，继续保持")
+                    .font(.system(size: 11))
+                    .foregroundStyle(MovementStyle.sage)
+            }
+        }
+        .padding(.horizontal, 26)
+        .padding(.vertical, 18)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(MovementStyle.cream)
+                .shadow(color: MovementStyle.brown.opacity(0.18), radius: 18, y: 6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(MovementStyle.yellow.opacity(0.6), lineWidth: 1.5)
+        )
+        .allowsHitTesting(false)
+    }
+
+    private func reportStat(_ title: String, _ value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(MovementStyle.brown)
+            Text(title)
+                .font(.system(size: 10))
+                .foregroundStyle(MovementStyle.brown.opacity(0.55))
         }
     }
 
@@ -210,7 +272,15 @@ struct MovementView: View {
               !workout.started, !workout.finished,
               !workout.selected.isEmpty else { return }
         state.acknowledgeReminder()
-        workout.start { state.coins += 5 }   // 每完成一组立即入账
+        workout.start {
+            state.coins += 5                       // 立即入账
+            let action = workout.routine.first?.title ?? "动作"
+            let rep = state.recordMovement(action: action)
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { report = rep }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.6) {
+                withAnimation(.easeOut(duration: 0.25)) { report = nil }
+            }
+        }
     }
 
     private func primary(_ title: String, action: @escaping () -> Void) -> some View {
