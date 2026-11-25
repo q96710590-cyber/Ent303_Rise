@@ -43,11 +43,19 @@ struct ContentView: View {
         .padding(16)
         .frame(width: 320, height: 548, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                // 点卡片空白处 = 失焦保存
-                .onTapGesture { dismissFocus() }
+            Group {
+                if page == 0 {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                } else {
+                    // 宠物页不要灰底，让猫和平台直接浮在桌面上
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.clear)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            // 点卡片空白处 = 失焦保存
+            .onTapGesture { dismissFocus() }
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -166,10 +174,6 @@ struct ContentView: View {
     private var page2: some View {
         IntroView()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.black.opacity(0.04))
-            )
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(alignment: .top) {
                 if let r = state.reminder {
